@@ -63,7 +63,7 @@ ess = function(f,sigma,llk,n){
 ## sig_var is the unit signal variance, default = 1
 ## l is the lengthscale, default = 1
 ## N is the number of columns, which is 200 in default
-cov_mat = function(sig_var = 1,l = 1,x,N){
+cov_mat = function(sig_var ,l,x,N){
   mat = matrix(0,N,N)
   for (i in 1:dim(x)[2]){
     for(j in 1:i){
@@ -145,13 +145,40 @@ dev.off()
 ## log Gaussian cox process
 mining = read.table("mining.dat")
 str(mining)
-mining = as.matrix(mining) ## 190 * 1 matrix
-llk_lgcp = function(yn,m){
-  sum(dpois(yn,exp(f+m),log = TRUE)) + log(m)
+library(pracma)
+bin_width = 50
+
+get_mine_data = function(bin_width){
+intervals = as.matrix(mining) ## 190 * 1 matrix
+num_days = 40550
+num_events = 191
+event_days = c(1,cumsum(intervals)+1)
+event_days[length(event_days)]
+edges = c(seq(1,num_days,bin_width),num_days+1)
+bin_counts = histc(event_days,edges)$cnt
+if(bin_counts[length(bin_counts)] == 0){
+  bin_counts = bin_counts[-length(bin_counts)]
 }
-observation_lgcp = mining
+xx = (edges[1:(length(edges)-1)] + (edges[2:length(edges)]-1))/2
+yy = bin_counts
+return(list(xx = xx,yy = yy))
+}
+
+llk_lgcp = function(yn,m){
+  function(f){
+  sum(dpois(yn,exp(f+m),log = TRUE))
+  }
+}
+observation_lgcp = get_mine_data(bin_width = 50)$yy
+## simulate f (length = 811)
+xxx = matrix(runif(811),nrow = 1,ncol = 811)
+sigma = cov_mat(sig_var = 1,l = 13516,xxx,N=811)
+f = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
 ## parameters
 m = log(191/811)
+llk = llk_lgcp(yn = observation_lgcp,m=m)
+llk(f)
+logGauss = ess(f=f,sigma=sigma,llk=llk_lgcp(yn = observation_lgcp,m=m),n=10000)
 ## Effective Sample Size
 ## read mining data
 
@@ -166,7 +193,6 @@ for(j in 1:100){
   loglikR1 = apply(R1,1,llk)
   ES[j] = effectiveSize(loglikR1[-(1:10000)])
 }
-
 
 
 
