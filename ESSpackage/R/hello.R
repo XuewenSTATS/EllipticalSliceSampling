@@ -13,6 +13,8 @@
 #   Check Package:             'Cmd + Shift + E'
 #   Test Package:              'Cmd + Shift + T'
 
+library(MASS)
+
 ## one possible log likelihood
 make.mvn <- function(mean, vcv) {
   logdet <- as.numeric(determinant(vcv, TRUE)$modulus)
@@ -49,9 +51,12 @@ ess = function(f,sigma,llk,n){
     }
     fs[j+1,] = f1
     f = f1
+    print(j)
   }
   return(fs = fs)
 }
+
+ftoy
 
 ## library(mvnormtest)
 ## mshapiro.test(t(ess(f,sigma,llk = make.mvn(c(0,0),sigma),n=100)))
@@ -94,18 +99,21 @@ gr = function(yn,std){
     sum(dnorm(yn,f,std,log = TRUE))
   }
 }
-r1 = ess(f=f,sigma=sigma,llk=gr(yn = observation,std = 0.3),n=1000)
+r1 = ess(f=f,sigma=sigma,llk=gr(yn = observation,std = 0.3),n=100000)
 system.time(ess(f=f,sigma=sigma,llk=gr(yn = observation,std = 0.3),n=1000))
 ## 20.148
 llk=gr(yn = observation,std = 0.3)
 loglikr1 = apply(r1,1,llk)
 ## thin it (every 3 iterations)
-loglikr1_thined = numeric(333)
-iterations = numeric(333)
-for(k in 1:333){
-  loglikr1_thined[k] = loglikr1[3*k]
-  iterations[k] = 3*k
+loglikr1_thined = numeric(9999)
+iterations = numeric(9999)
+for(k in 1:9999){
+  loglikr1_thined[k] = loglikr1[10*k]
+  iterations[k] = 10*k
 }
+plot(exp(loglikr1[90000:100000]),type="l")
+plot(loglikr1[1:100],type="l",ylim=c(-80,-50))
+plot(r1[1:1000:100000],type='l')
 
 pdf("figure1.pdf",5,4)
 plot(iterations,loglikr1_thined,type="l",col="blue",xlab = "# iterations",ylab = "",main = "Elliptical slice sampling")
@@ -178,9 +186,28 @@ f = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
 m = log(191/811)
 llk = llk_lgcp(yn = observation_lgcp,m=m)
 llk(f)
-logGauss = ess(f=f,sigma=sigma,llk=llk_lgcp(yn = observation_lgcp,m=m),n=10000)
+logGauss = ess(f=f,sigma=sigma,llk=llk_lgcp(yn = observation_lgcp,m=m),n=1000)
 ## Effective Sample Size
 ## read mining data
+
+
+loglikrmine = apply(logGauss,1,llk)
+## thin it (every 78 iterations)
+loglikrmine_thined = numeric(333)
+iterations = numeric(333)
+for(k in 1:333){
+  loglikrmine_thined[k] = loglikrmine[3*k]
+  iterations[k] = 3*k
+}
+
+pdf("figureminedata.pdf",5,4)
+plot(iterations,loglikrmine_thined,type="l",col="blue",xlab = "# iterations",ylab = "",main = "Elliptical slice sampling")
+dev.off()
+plot(logGauss, type='l')
+
+
+library(mvnormtest)
+mshapiro.test(t(logGauss))
 
 ## 100000 iterations
 # 1-dim
@@ -193,8 +220,6 @@ for(j in 1:100){
   loglikR1 = apply(R1,1,llk)
   ES[j] = effectiveSize(loglikR1[-(1:10000)])
 }
-
-
 
 
 
