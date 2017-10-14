@@ -262,6 +262,6 @@ plot(logGauss, type='l')
 
  
 
-
+ 
 
 
