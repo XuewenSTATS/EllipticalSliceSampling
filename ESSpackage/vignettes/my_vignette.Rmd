@@ -8,8 +8,10 @@ vignette: >
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
+# 1. Introduction
 
-## Slice sampling
+# 2. Methodology
+## 2.1 Slice sampling
 
 Slice sampling was introduced by R. M. Neal in 2003 in the homonym paper published in the Annals of Statistics. Neal's idea was to present a new approach to sample from a probability density function, that tried to overcome some drawbacks of the two major Monte Carlo Markov Chain methods of sampling: the Gibbs sampler and the Metropolis Hastings method.
 
@@ -20,12 +22,28 @@ Metropolis Hasting, instead, initializes the chain with a value sampled from a p
 Slice sampling tries to overcome these flaws in the previous methods. The basic idea lies in the fact that if we want to sample $x$ from a distribution $p(x)$ that is proportional to a certain function $f(x)$, it would be sufficient just to sample uniformly from the area below $f(x)$.
 By defining an auxiliary random variable $y$, we exploit Gibbs sampler to sample from the two full conditional distributions. In particular, $y|x$ is distributed as an $Uniform(0,f(x))$ and $x|y$ is distributed as an uniform on the so called slice $S=\lbrace x: y<f(x)\rbrace$. The joint density of $x$ and $y$ is, then $$p(x,y)=\begin{cases}1/Z\quad&\text{ for }0<y<f(x)\\0\quad&\text{ otherwise}\end{cases}$$where $Z=\int f(x)dx$. From this it can easily be seen that $$p(x)=\int_0^{f(x)} p(x,y)dy=\frac{1}{Z}f(x)$$as desired. Sampling on the slice can be difficult, and it is sometimes substituted with some update for $x$ which leaves invariant the uniform distribution.
 
-## Elliptical Slice Sampling
+## 2.2 Elliptical Slice Sampling
 
 Elliptical Slice Sampling is a particular case of Monte Carlo markov chain method that avoids the tuning of parameters, simpler and often faster than other methods to sample from the posterior distribution of models with multivariate Gaussian prior.
 
 Let $\mathbf{f}$ be the vector of latent variables and a Gaussian distribution with zero vector mean and covariance matrix $\Sigma$: $$\mathbf{f}\sim\mathcal{N}(\mathbf{f};\mathbf{0}, \Sigma)=|2\pi\Sigma|^{-1/2}\text{exp}\left(-\frac{1}{2}\mathbf{f}^T\Sigma^{-1}\mathbf{f}\right)$$ Let $$L(\mathbf{f})=p(\text{data}|\mathbf{f})$$ be the likelihood function. Our target distribution is the posterior of this model: $$p^*(\mathbf{f})\propto \mathcal{N}(\mathbf{f};\mathbf{0}, \Sigma)L(\mathbf{f})$$
 
+# 3. Experiment
+In this section, we will validate the elliptical slice sampling algorithm on 2 models: Gaussian regression and Log Gaussian Cox process. 
+
+## 3.1 Model Description
+## 3.1.1 Gaussian Regression
+Observations $y_n$ are drawn from Normal distribution with mean $f_n$ and variance $\sigma_n^2$, for $n = 1,...,N$. Let $N$ denote the sample size, $D$ denote the number of dimensions. $\bf{f}$ $= (f_1,...,f_N) \sim{N(0,\Sigma)}$. To simulate $\bf{f}$, we define the covariance matrix as 
+\begin{equation}
+\Sigma_{i,j} = \sigma_{f}^{2}exp(-\frac{1}{2}\sum_{d=1}^{D}(x_{d,i} - x_{d,j})^2/l^2)
+\end{equation}
+Covariance matrix $\Sigma$ is computed by inputing $\bf{X}$, which is a $D\times{N}$ matrix. $\bf{X} = [x_1,...,x_N]^T$, where the column vector $\bf{x_n}$, $n = 1,...,N$, is the 'feature' vector with $D$ dimensions. We will draw $\bf{x_n}$ from a D-dimensional unit hypercube for all $n$. \\
+We can simulate observations $y_n$ after generating $f_n$ and fixing $\sigma_{n}^2$ and $\sigma_{f}^2$. $y_1,...,y_N$ are $\it{i.i.d}$ normal variables, so the likelihood function as a function of $\bf{f}$ is:
+\begin{equation}
+L_r^{\bf{f}} = \prod_{n=1}^{N} \it{N(y_n;fn,\sigma_n^2)}
+\end{equation}
+
+## 3.1.2 Log Gaussian Cox process
 Note the various macros within the `vignette` section of the metadata block above. These are required in order to instruct R how to build the vignette. Note that you should change the `title` field and the `\VignetteIndexEntry` to match the title of your vignette.
 
 ## Styles
