@@ -28,76 +28,63 @@ Elliptical Slice Sampling is a particular case of Monte Carlo markov chain metho
 
 Let $\mathbf{f}$ be the vector of latent variables and a Gaussian distribution with zero vector mean and covariance matrix $\Sigma$: $$\mathbf{f}\sim\mathcal{N}(\mathbf{f};\mathbf{0}, \Sigma)=|2\pi\Sigma|^{-1/2}\text{exp}\left(-\frac{1}{2}\mathbf{f}^T\Sigma^{-1}\mathbf{f}\right)$$ Let $$L(\mathbf{f})=p(\text{data}|\mathbf{f})$$ be the likelihood function. Our target distribution is the posterior of this model: $$p^*(\mathbf{f})\propto \mathcal{N}(\mathbf{f};\mathbf{0}, \Sigma)L(\mathbf{f})$$
 
+Neal, in 1999, introduced the idea of a Metropolis-Hastings algorithm for this type of problems, by proposing as new state 
+$$\mathbf{f^{'}}=\sqrt{1-\epsilon^2}\mathbf{f}+\epsilon\pmb{\nu},\qquad\pmb{\nu}\sim\mathcal{N}(\mathbf{0}, \Sigma)$$ where $\epsilon\in[-1,1]$ is a the step-size parameter, and its varying defines half of an ellipse, having $\pmb{\nu}$ fixed. When $\epsilon=0$ we are resampling the same value. The probability of accepting the move is $$p(\text{accept})=\text{min}(1,L(\mathbf{f^{'}})/L(\mathbf{f}))$$ otherwise the next state is still $\mathbf{f}$. A drawback of this algorithm is that $\epsilon$ needs to be tuned so that the Markov chain can mix efficiently. A representation of the whole ellipse gives a richer choice of updates, so we'll exploit: $$\mathbf{f^{'}}=\pmb{\nu}\text{sin}\theta+\mathbf{f}\text{cos}\theta$$ that represents the ellipse centered in the origin of the axes and passing through $\mathbf{f}$ and $\pmb{\nu}$, and $\theta$ is a new step-size parameter.
+
+To avoid the tuning of the parameter, the idea is to augment the prior in order that $\theta$ becomes a random variable and we can sample it exploiting the slice sampling. The augmented model becomes
+\begin{align*}
+\pmb{\nu}_0&\sim\mathcal{N}(\mathbf{0},\Sigma)\\
+\pmb{\nu}_1&\sim\mathcal{N}(\mathbf{0},\Sigma)\\
+\theta&\sim \text{Uniform}[0,2\pi]\\
+\mathbf{f^{'}}&=\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta
+\end{align*}
+which assures that the distribution of $\bf{f}$ is always $\mathcal{N}(\mathbf{0},\Sigma)$. The new target distribution is $$p^*(\pmb{\nu}_0,\pmb{\nu}_1,\mathbf{f})\propto\mathcal{N}(\pmb{\nu}_0;\mathbf{0},\Sigma)\mathcal{N}(\pmb{\nu}_01\mathbf{0},\Sigma)L(\mathbf{f}(\pmb{\nu}_0,\pmb{\nu}_1,\theta))$$
+The slice sampling exploits the following algorithm:
+
+1. Sample from $p(\pmb{\nu}_0,\pmb{\nu}_1,\theta|\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta=\mathbf{f})$:
+\begin{align*}
+\theta &\sim\text{Uniform}[0,2\pi]\\
+\pmb{\nu}&\sim\mathcal{N}(\mathbf{0},\Sigma)\\ 
+\pmb{\nu}_0 &\leftarrow\mathbf{f}\text{sin}\theta+\pmb{\nu}\text{cos}\theta\\
+\pmb{\nu}_1 &\leftarrow\mathbf{f}\text{cos}\theta-\pmb{\nu}\text{sin}\theta
+\end{align*}
+2. Sample $\theta$ using slice sampling on $p^*(\theta|\pmb{\nu}_0,\pmb{\nu}_1)\propto L(\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta)$
+3. Return $\mathbf{f^{'}}=\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta$
+
 # 3. Experiment
 In this section, we will validate the elliptical slice sampling algorithm on 2 models: Gaussian regression and Log Gaussian Cox process. 
-
+  
 ## 3.1 Model Description
 ## 3.1.1 Gaussian Regression
-Observations $y_n$ are drawn from Normal distribution with mean $f_n$ and variance $\sigma_n^2$, for $n = 1,...,N$. Let $N$ denote the sample size, $D$ denote the number of dimensions. $\bf{f}$ $= (f_1,...,f_N) \sim{N(0,\Sigma)}$. To simulate $\bf{f}$, we define the covariance matrix as 
-\begin{equation}
-\Sigma_{i,j} = \sigma_{f}^{2}exp(-\frac{1}{2}\sum_{d=1}^{D}(x_{d,i} - x_{d,j})^2/l^2)
-\end{equation}
-Covariance matrix $\Sigma$ is computed by inputing $\bf{X}$, which is a $D\times{N}$ matrix. $\bf{X} = [x_1,...,x_N]^T$, where the column vector $\bf{x_n}$, $n = 1,...,N$, is the 'feature' vector with $D$ dimensions. We will draw $\bf{x_n}$ from a D-dimensional unit hypercube for all $n$. \\
-We can simulate observations $y_n$ after generating $f_n$ and fixing $\sigma_{n}^2$ and $\sigma_{f}^2$. $y_1,...,y_N$ are $\it{i.i.d}$ normal variables, so the likelihood function as a function of $\bf{f}$ is:
-\begin{equation}
-L_r(\bf{f}) = \prod_{n=1}^{N} \it{N(y_n;f_n,\sigma_n^2)}
-\end{equation}
-
+  Observations $y_n$ are drawn from Normal distribution with mean $f_n$ and variance $\sigma_n^2$, for $n = 1,...,N$. Let $N$ denote the sample size, $D$ denote the number of dimensions. $\bf{f}$ $= (f_1,...,f_N) \sim{N(0,\Sigma)}$. To simulate $\bf{f}$, we define the covariance matrix as 
+  \begin{equation}
+  \Sigma_{i,j} = \sigma_{f}^{2}exp(-\frac{1}{2}\sum_{d=1}^{D}(x_{d,i} - x_{d,j})^2/l^2)
+  \end{equation}
+  Covariance matrix $\Sigma$ is computed by inputing $\bf{X}$, which is a $D\times{N}$ matrix. $\bf{X} = [x_1,...,x_N]^T$, where the column vector $\bf{x_n}$, $n = 1,...,N$, is the 'feature' vector with $D$ dimensions. We will draw $\bf{x_n}$ from a D-dimensional unit hypercube for all $n$. \\
+  We can simulate observations $y_n$ after generating $f_n$ and fixing $\sigma_{n}^2$ and $\sigma_{f}^2$. $y_1,...,y_N$ are $\it{i.i.d}$ normal variables, so the likelihood function as a function of $\bf{f}$ is:
+  \begin{equation}
+  L_r(\bf{f}) = \prod_{n=1}^{N} \it{N(y_n;f_n,\sigma_n^2)}
+  \end{equation}
+  
 ## 3.1.2 Log Gaussian Cox process
-Cox process is a "doubly stochastic" Poisson process with a stochastic intensity measure \cite{Moller}. Log Gaussian Cox process is introduced by Moller \cite{Moller} as the Cox process where the logarithm of the internsity function is a Gaussian process. Mathematically, let $y_n$ denote the observations. Then $y_n \sim{Poisson(\lambda_n)}$ with mean $\lambda_n$. The intensity function can be estimated given the log Gaussian Cox process observation within a bounded subset. This means we can partition the space finitely into $N$ bins and $y_n$ is the number of events in bin $n$ for all $n = 1,...,N$. We assume that every bin has a constant intensity function $\lambda_n$. Let $m$ be the offset to the log mean $\lambda_n$, and define it as the sum of the mean log-intensity of the Poisson process and the log of the bin size \cite{ESS}. 
-\begin{equation}
-y_n|f_n \sim{Poisson(exp(f_n + m))}
-\end{equation}
-\begin{equation}
-\bf{f} \sim{N(0,\Sigma)}
-\end{equation}
-
-$\Sigma$ is defined in Equation (1). Then the likelihood of $\bf{y}$ is:
-\begin{equation}
-L_p(\bf{f}) = \prod_{n=1}^{N}\frac{\lambda_{n}^{y_{n}} exp(-\lambda_n)}{y_n!}, \lambda_n = e^{f_n+m}
-\end{equation}
-
+  Cox process is a "doubly stochastic" Poisson process with a stochastic intensity measure \cite{Moller}. Log Gaussian Cox process is introduced by Moller \cite{Moller} as the Cox process where the logarithm of the internsity function is a Gaussian process. Mathematically, let $y_n$ denote the observations. Then $y_n \sim{Poisson(\lambda_n)}$ with mean $\lambda_n$. The intensity function can be estimated given the log Gaussian Cox process observation within a bounded subset. This means we can partition the space finitely into $N$ bins and $y_n$ is the number of events in bin $n$ for all $n = 1,...,N$. We assume that every bin has a constant intensity function $\lambda_n$. Let $m$ be the offset to the log mean $\lambda_n$, and define it as the sum of the mean log-intensity of the Poisson process and the log of the bin size \cite{ESS}. 
+  \begin{equation}
+  y_n|f_n \sim{Poisson(exp(f_n + m))}
+  \end{equation}
+  \begin{equation}
+  \bf{f} \sim{N(0,\Sigma)}
+  \end{equation}
+  
+  $\Sigma$ is defined in Equation (1). Then the likelihood of $\bf{y}$ is:
+  \begin{equation}
+  L_p(\bf{f}) = \prod_{n=1}^{N}\frac{\lambda_{n}^{y_{n}} exp(-\lambda_n)}{y_n!}, \lambda_n = e^{f_n+m}
+  \end{equation}
+  
 ## 3.2 Implementation and Results
 ## 3.2.1 Gaussian Regression
-Let $l=1$, $\sigma_{f}^2 = 1$, $\sigma_{n}^2 = 0.3^2$. Firstly, we validate the Elliptical Slice Sampling algorithm on Gaussian regression model when $\bf{f}$ is bivariate Normal variable. In this case, let $N = 2$ and $D = 1$ such that $\{\bf{x}_n\}_{n=1}^{2}$ is one dimensional. Since both prior distribution and likelihood function are Gaussian, the posterior distribution of $\bf{f}$ should be Gaussian. We perform Henze-Zirkler's test to assess whether the outputs follow Bivariate Normal distribution. This is based on the measure of distance, which is nonnegative, between the characteristic function of the multivariate normality and the empirical characteristic function. The distribution of the test statistic is approximately log normal. We achieved a p-value much larger than 0.05, which indicates that there is no strong evidence to reject the null hypothesis that the outputs of the algorithm follows multivariate normal distribtuion. We can visualise the distribution of outputs in Figure 1. 
+  Let $l=1$, $\sigma_{f}^2 = 1$, $\sigma_{n}^2 = 0.3^2$. Firstly, we validate the Elliptical Slice Sampling algorithm on Gaussian regression model when $\bf{f}$ is bivariate Normal variable. In this case, let $N = 2$ and $D = 1$ such that $\{\bf{x}_n\}_{n=1}^{2}$ is one dimensional. Since both prior distribution and likelihood function are Gaussian, the posterior distribution of $\bf{f}$ should be Gaussian. We perform Henze-Zirkler's test to assess whether the outputs follow Bivariate Normal distribution. This is based on the measure of distance, which is nonnegative, between the characteristic function of the multivariate normality and the empirical characteristic function. The distribution of the test statistic is approximately log normal. We achieved a p-value much larger than 0.05, which indicates that there is no strong evidence to reject the null hypothesis that the outputs of the algorithm follows multivariate normal distribtuion. We can visualise the distribution of outputs in Figure 1. 
+
 \begin{figure} [h!]
 \includegraphics{3dplot.pdf}
 \caption{Perspective (left) and Contour (right) plots for bivariate outputs}
 \end{figure}
-## Styles
-
-The `html_vignette` template includes a basic CSS theme. To override this theme you can specify your own CSS in the document metadata as follows:
-
-    output: 
-      rmarkdown::html_vignette:
-        css: mystyles.css
-
-## Figures
-
-The figure sizes have been customised so that you can easily put two images side-by-side. 
-
-```{r, fig.show='hold'}
-plot(1:10)
-plot(10:1)
-```
-
-You can enable figure captions by `fig_caption: yes` in YAML:
-
-    output:
-      rmarkdown::html_vignette:
-        fig_caption: yes
-
-Then you can use the chunk option `fig.cap = "Your figure caption."` in **knitr**.
-
-## More Examples
-
-You can write math expressions, e.g. $Y = X\beta + \epsilon$, footnotes^[A footnote here.], and tables, e.g. using `knitr::kable()`.
-
-```{r, echo=FALSE, results='asis'}
-knitr::kable(head(mtcars, 10))
-```
-
-Also a quote using `>`:
-
-> "He who gives up [code] safety for [code] speed deserves neither."
-([via](https://twitter.com/hadleywickham/status/504368538874703872))
