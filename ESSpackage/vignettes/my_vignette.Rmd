@@ -18,9 +18,13 @@ Gibbs sampler exploits the possibility of sampling from the full conditional den
 Metropolis Hasting, instead, initializes the chain with a value sampled from a proposal distribution from which we are able to sample from and that attains some nice links with the target distribution. This sample can be accepted or rejected according to a probability that depends on the likelihood of the new candidate point and the previous one. This method presents some scale parameters for which there does not exist a certain rule of decision; moreover, the proposal distribution does not always come from a straightforward reasoning.
 
 Slice sampling tries to overcome these flaws in the previous methods. The basic idea lies in the fact that if we want to sample $x$ from a distribution $p(x)$ that is proportional to a certain function $f(x)$, it would be sufficient just to sample uniformly from the area below $f(x)$.
-By defining an auxiliary random variable $y$, we exploit Gibbs sampler to sample from the two full conditional distributions. In particular, $y|x$ is distributed as an $Uniform(0,f(x))$ and $x|y$ is distributed as an uniform on the so called slice $S=\lbrace x: y<f(x)\rbrace$.
+By defining an auxiliary random variable $y$, we exploit Gibbs sampler to sample from the two full conditional distributions. In particular, $y|x$ is distributed as an $Uniform(0,f(x))$ and $x|y$ is distributed as an uniform on the so called slice $S=\lbrace x: y<f(x)\rbrace$. The joint density of $x$ and $y$ is, then $$p(x,y)=\begin{cases}1/Z\quad&\text{ for }0<y<f(x)\\0\quad&\text{ otherwise}\end{cases}$$where $Z=\int f(x)dx$. From this it can easily be seen that $$p(x)=\int_0^{f(x)} p(x,y)dy=\frac{1}{Z}f(x)$$as desired. Sampling on the slice can be difficult, and it is sometimes substituted with some update for $x$ which leaves invariant the uniform distribution.
 
-## Vignette Info
+## Elliptical Slice Sampling
+
+Elliptical Slice Sampling is a particular case of Monte Carlo markov chain method that avoids the tuning of parameters, simpler and often faster than other methods to sample from the posterior distribution of models with multivariate Gaussian prior.
+
+Let $\mathbf{f}$ be the vector of latent variables and a Gaussian distribution with zero vector mean and covariance matrix $\Sigma$: $$\mathbf{f}\sim\mathcal{N}(\mathbf{f};\mathbf{0}, \Sigma)=|2\pi\Sigma|^{-1/2}\text{exp}\left(-\frac{1}{2}\mathbf{f}^T\Sigma^{-1}\mathbf{f}\right)$$ Let $$L(\mathbf{f})=p(\text{data}|\mathbf{f})$$ be the likelihood function. Our target distribution is the posterior of this model: $$p^*(\mathbf{f})\propto \mathcal{N}(\mathbf{f};\mathbf{0}, \Sigma)L(\mathbf{f})$$
 
 Note the various macros within the `vignette` section of the metadata block above. These are required in order to instruct R how to build the vignette. Note that you should change the `title` field and the `\VignetteIndexEntry` to match the title of your vignette.
 
