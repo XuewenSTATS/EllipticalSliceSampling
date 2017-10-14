@@ -78,7 +78,6 @@ make.mvn <- function(mean, vcv) {
 
 ## check it on Gaussian regression
 
-## simulate synthetic data x
 ## try 1 dimension data
 library(MASS)
 ## parameters: (gr:gaussian regression)
@@ -103,6 +102,28 @@ gr = function(yn,std){
   }
 }
 
+## toy example
+## before we implement the code on 1 dimension data, we first set N = 2, D = 1
+x_toy = matrix(runif(2),1,2)
+sigma_toy = cov_mat(1,1,x_toy,2)
+f_toy = mvrnorm(n = 1, mu = rep(0,dim(sigma_toy)[1]), sigma_toy)
+observation_toy = c(rnorm(1,f_toy[1],sd = 0.3),rnorm(1,f_toy[2],sd = 0.3))
+r_toy = ess(f=f_toy,sigma=sigma_toy,llk=gr(yn = observation_toy,std = std_gr),n=100000)
+library(MVN)
+pdf("qqplot.pdf",6,4)
+uniPlot(r_toy[-(1:10000),],type = "qqplot")
+dev.off()
+pdf("histogram.pdf",6,4)
+uniPlot(r_toy[-(1:10000),],type = "histogram")
+dev.off()
+results1 = mardiaTest(r_toy[-(1:80000),],qqplot = FALSE)
+pdf("3dplot.pdf",6,4)
+par(mfrow = c(1,2))
+mvnPlot(results1, type = "persp", default = TRUE)
+mvnPlot(results1, type = "contour", default = TRUE,xlab="f_1",ylab="f_2")
+dev.off()
+
+## start with 1 dimensional example
 r1 = ess(f=f1,sigma=sigma1,llk=gr(yn = observation1,std = std_gr),n=1000)
 system.time(ess(f=f1,sigma=sigma,llk=gr(yn = observation,std = std_gr),n=1000))  ## 20.148
 llk=gr(yn = observation1,std = std_gr)
