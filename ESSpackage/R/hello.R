@@ -260,7 +260,7 @@ plot(iterations,loglikrmine_thined,type="l",col="blue",xlab = "# iterations",yla
 dev.off()
 plot(logGauss, type='l')
 
- 
+  
 
  
 
