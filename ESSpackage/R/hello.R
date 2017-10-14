@@ -86,7 +86,7 @@ var_gr = 0.09  ## noise variance
 std_gr = 0.3  ## standard deviation
 l_gr = 1
 sig_var_gr = 1
-## inputs
+## inputs 
 x1 = matrix(runif(N_gr),nrow = 1,ncol = N_gr)
 sigma1 = cov_mat(sig_var = sig_var_gr,l = l_gr,x = x1,N=N_gr)
 f1 = mvrnorm(n = 1, mu = rep(0,dim(sigma1)[1]), sigma1)
