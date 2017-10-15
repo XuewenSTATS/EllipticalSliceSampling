@@ -260,8 +260,66 @@ plot(iterations,loglikrmine_thined,type="l",col="blue",xlab = "# iterations",yla
 dev.off()
 plot(logGauss, type='l')
 
-  
 
+
+
+
+### Neal Metropolis Hastings (1999)
+NMH = function(f,sigma,llk,n,stepsize){
+  fs = matrix(0,n,length(f))
+  fs[1,] = f
+  loglik = numeric(n)
+  loglik[1] = llk(f)
+  for(j in 1:(n-1)){
+    nu = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
+    logy = log(runif(1)) + llk(f)
+    f1 = sqrt(1-stepsize^2) * f + stepsize * nu
+    if(llk(f1) > log(y)) {
+      fs[j+1,] = f1
+      loglik[j+1] = llk(f1)
+    }
+    else{
+      fs[j+1,] = fs[j,]
+      loglik[j+1] = loglik[j]
+    }
+    f = fs[j+1,]
+  }
+  return(list(fs = fs, loglik = loglik))
+}
+
+## tune stepsize automatically to reach a good acceptance rate
+NMH_tuned = function(f,sigma,llk,n,stepsize,threshold){
+  fs = matrix(0,n,length(f))
+  fs[1,] = f
+  loglik = numeric(n)
+  loglik[1] = llk(f)
+  update = numeric(n)
+  update[1] = 1
+  for(j in 1:(n-1)){
+    nu = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
+    logy = log(runif(1)) + llk(f)
+    f1 = sqrt(1-stepsize^2) * f + stepsize * nu
+    if(llk(f1) > log(y)) {
+      fs[j+1,] = f1
+      loglik[j+1] = llk(f1)
+      update[j+1] = 1
+    }
+    else{
+      fs[j+1,] = fs[j,]
+      loglik[j+1] = loglik[j]
+      update[j+1] = 0
+    }
+    f = fs[j+1,]
+    acceptrate = sum(update)/(j+1)
+    if(acceptrate < threshold){
+      stepsize = 0.75 * stepsize
+    }
+  }
+  return(list(fs = fs, loglik = loglik))
+}
+  
+## Iain Murray gives stepsize = 0.05 for gaussian regression
+## stepsize = 0.1 for log gaussian cox process
  
 
 
