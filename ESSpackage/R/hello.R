@@ -221,11 +221,11 @@ bin_width = 50
 N_lgcp = 811 ## number of bins
 sig_var_lgcp = 1
 l_lgcp = 13516
-
-get_mine_data = function(bin_width){
-intervals = as.matrix(mining) ## 190 * 1 matrix
 num_days = 40550
 num_events = 191
+
+get_mine_data = function(bin_width,num_days,num_events){
+intervals = as.matrix(mining) ## 190 * 1 matrix
 event_days = c(1,cumsum(intervals)+1)
 event_days[length(event_days)]
 edges = c(seq(1,num_days,bin_width),num_days+1)
@@ -243,7 +243,7 @@ llk_lgcp = function(yn,m){
   sum(dpois(yn,exp(f+m),log = TRUE))
   }
 }
-observation_lgcp = get_mine_data(bin_width = 50)$yy
+observation_lgcp = get_mine_data(bin_width = 50,num_days = 40550,num_events = 191)$yy
 ## simulate f (length = 811)
 x_lgcp = matrix(runif(N_lgcp),nrow = 1,ncol = N_lgcp)
 sigma_lgcp = cov_mat(sig_var = sig_var_lgcp,l = l_lgcp,x_lgcp,N=N_lgcp)
@@ -253,12 +253,17 @@ m = log(num_events/N_lgcp)
 llk = llk_lgcp(yn = observation_lgcp,m=m)
 llk(f)
 ## convergence diagnostic
-logGauss = ess(f=f_lgcp,sigma=sigma_lgcp,llk=llk_lgcp(yn = observation_lgcp,m=m),n=10000)
+logGauss = ess(f=f_lgcp,sigma=sigma_lgcp,llk=llk_lgcp(yn = observation_lgcp,m=m),n=20000)
 loglikrmine = apply(logGauss,1,llk)
-pdf("figureminedata.pdf",5,4)
-plot(iterations,loglikrmine_thined,type="l",col="blue",xlab = "# iterations",ylab = "",main = "Elliptical slice sampling")
+
+pdf("figureminedataloglik.pdf",5,4)
+plot(loglikrmine,type="l",col="blue",xlab = "# iterations",ylab = "log likelihood")
 dev.off()
-plot(logGauss, type='l')
+
+pdf("figureminedata.pdf",5,4)
+plot(logGauss[,1], type='l',col="blue",xlab ="# iterations",ylab = "f_1" )
+dev.off()
+
 
 
 
