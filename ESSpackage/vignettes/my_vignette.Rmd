@@ -51,8 +51,67 @@ The slice sampling exploits the following algorithm:
 2. Sample $\theta$ using slice sampling on $p^*(\theta|\pmb{\nu}_0,\pmb{\nu}_1)\propto L(\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta)$
 3. Return $\mathbf{f^{'}}=\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta$
 
+To avoitd proposing $\nu_{0}$ and $\nu_{1}$ in every iteration of the algorithm and to shrink the range of $\theta$ after every iteration, Murray, Adams and MacKay \cite{Murray} suggested a mature algorithm as follows:
+
+1. Sample $\nu\sim{N(0,\Sigma)}$
+2. Sample $u\sim{Uniform[0,1]}$, let log$y\leftarrow$log$L(\bf{f})$ + log$u$
+3. Draw an initial proposal $\theta\sim{Uniform[0,2\pi]}$, define $[\theta_{min},\theta_{max}]\leftarrow{[\theta-2\pi,\theta]}$
+4. $\bf{f'}\leftarrow{\bf{f}\text{cos}\theta + \bf{\nu} sin\theta}$
+5. \bf{if} log$L(\bf{f'})$ > log$y$ \bf{then:}
+6.      Accept: \bf{return} \mathbf{f'}
+7. \bf{else:} shrink the range:
+8.     \bf{if} $\theta < 0$, \bf{then} $\theta_{min}\leftarrow{\theta}$ \bf{else:} $\theta_{max}\leftarrow{\theta}$
+9. $\theta\sim{Uniform[\theta_{min},\theta_{max}]}$
+10. \bf{Go to step 4}
+
+## 2.3 Reversibility of Elliptical Slice Sampling
+
+The Elliptical Slice Sampling algorithm updates $\bf{f}$ by proposing $\bf{f_1}$,...,$\bf{f_k}$,... based on $\theta_1$,...,$\theta_k$,..., until $\bf{f_K}$ satisfies step 5 in the algorithm. Then $\bf{f_K} = \bf{f'}$. This procedure is reversible. We can verify this by showing
+
+\begin{equation}
+p(\bf{f},y,\bf{\nu},\{\theta_k\}) = p(\bf{f'},y,\bf{\nu'},\{\theta_k'\})
+\end{equation}
+
+This joint distribution is the multiplication of target distribution and proposals of ${\theta_k}$ and $\nu$:
+
+\begin{equation}
+p(\bf{f},y,\bf{\nu},{\theta_k}) = p^*(\bf{f})p(y|\bf{f})p(\bf{\nu})p(\{\theta_k\}|\bf{f},\bf{\nu},y) = \frac{1}{Z}N(\bf{f},0,\Sigma)N(\bf{\nu};0,\Sigma)p(\{\theta_k\}|\bf{f},\bf{\nu},y)
+\end{equation}
+
+Another variable $\nu_k$ is added which is updated in every iteration, such that:
+
+\begin{equation}
+\nu_k = \nu cos(\theta_k) - \bf{f}sin(\theta_k), k=1,...,K
+\end{equation}
+
+Then we have:
+
+\begin{equation}
+N(\bf{f},0,\Sigma)N(\nu;0,\Sigma) = N(\bf{f_k},0,\Sigma)N(\bf{\nu};0,\Sigma) \forall{k}
+\end{equation}
+
+This can be easily proved by computing Jacobian matrix, which has determinat equalling 1 in this case.
+
+$\theta = 0$ corresponds to the location of $\bf{f}$. When we reverse the procedure, the location of $\bf{f'}$ corresponds to $\theta' = 0$. So the relative angle of the location of $\bf{f}$ is $-\theta_K$. By generating the same $y$, $\nu$ and angle:
+
+\begin{equation}
+\theta_k' = 
+\begin{cases}
+\theta_k-\theta_K, & k<K\\
+- \theta_K, & k=K
+\end{cases}
+\end{equation}
+
+we can return to $\bf{f}$. So the following equation holds:
+
+\begin{equation}
+p(\{\theta_k\}|\bf{f},\bf{\nu},y) = p(\{\theta_k'\}|\bf{f'},\bf{\nu'},y)
+\end{equation}
+
+This will lead to the reversibility of the algorithm.
+
 # 3. Experiment
-In this section, we will validate the elliptical slice sampling algorithm on 2 models: Gaussian regression and Log Gaussian Cox process. 
+In this section, we will validate the elliptical slice sampling algorithm on 2 models: Gaussian regression and Log Gaussian Cox process, and compare this algorithm with the Metropolis-Hastings algorithm adapted by Neal \cite{Neal}.
   
 ## 3.1 Model Description
 ## 3.1.1 Gaussian Regression
@@ -77,7 +136,7 @@ L_r(\bf{f}) = \prod_{n=1}^{N} \it{N(y_n;f_n,\sigma_n^2)}
   \bf{f} \sim{N(0,\Sigma)}
   \end{equation}
   
-  $\Sigma$ is defined in Equation (1). Then the likelihood of $\bf{y}$ is:
+  $\Sigma$ is defined in Equation (7). Then the likelihood of $\bf{y}$ is:
   \begin{equation}
   L_p(\bf{f}) = \prod_{n=1}^{N}\frac{\lambda_{n}^{y_{n}} exp(-\lambda_n)}{y_n!}, \lambda_n = e^{f_n+m}
   \end{equation}
@@ -113,6 +172,12 @@ The traces of log-likelihoods and the first dimension of outputs for $D=1$ are s
 
 ## 3.2.2 Log Gaussian Cox process
 
-Data of mining disasters are provided by Jarret \cite{Jarret}. There were 191 events happening during 40550 days which were partitioned into 811 bins each of which contains 50 days. Given the date of every event, the number of event happened in each bin can be computed, i.e. $y_n$. Let $l=13516$, $\sigma_f^2 = 1$, $N = 811$, $D=1$ and $m=log(191/811)$.
-
+Data of mining disasters are provided by Jarret \cite{Jarret}. There were 191 events happening during 40550 days which were partitioned into 811 bins each of which contains 50 days. Given the date of every event, the number of event happened in each bin can be computed, i.e. $y_n$. Let $l=13516$, $\sigma_f^2 = 1$, $N = 811$, $D=1$ and $m=log(191/811)$. The trace of the first dimension of the output is shown below.
+\begin{figure}[h!]
+\centering
+\includegraphics[width = 10cm]{figureminedata.pdf}
+\caption{Trace plot of the first dimension dimension of output $f$ of 20000 iterations}
+\end{figure}
+## 3.3 Comparison
+We will compare the performance Elliptical Slice Sampling algorithm with the Metropolis-Hasting algorithm introduced by Neal \cite{Neal} for both Gaussian regression model and log Gaussian Cox process model.The effective sample size, likelihood and CPU time for running 100000 iterations after 10000 burn in will be evaluated. We will perform 100 runs to discover the mean and standard deviation of the evaluations. 
 
