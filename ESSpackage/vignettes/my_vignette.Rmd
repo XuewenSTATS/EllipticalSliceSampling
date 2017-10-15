@@ -38,7 +38,7 @@ To avoid the tuning of the parameter, the idea is to augment the prior in order 
 \theta&\sim \text{Uniform}[0,2\pi]\\
 \mathbf{f^{'}}&=\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta
 \end{align*}
-which assures that the distribution of $\bf{f}$ is always $\mathcal{N}(\mathbf{0},\Sigma)$. The new target distribution is $$p^*(\pmb{\nu}_0,\pmb{\nu}_1,\mathbf{f})\propto\mathcal{N}(\pmb{\nu}_0;\mathbf{0},\Sigma)\mathcal{N}(\pmb{\nu}_01\mathbf{0},\Sigma)L(\mathbf{f}(\pmb{\nu}_0,\pmb{\nu}_1,\theta))$$
+which assures that the distribution of $\bf{f}$ is always $\mathcal{N}(\mathbf{0},\Sigma)$. The new target distribution is $$p^*(\pmb{\nu}_0,\pmb{\nu}_1,\mathbf{f})\propto\mathcal{N}(\pmb{\nu}_0;\mathbf{0},\Sigma)\mathcal{N}(\pmb{\nu}_1;\mathbf{0},\Sigma)L(\mathbf{f}(\pmb{\nu}_0,\pmb{\nu}_1,\theta))$$
 The slice sampling exploits the following algorithm:
 
 1. Sample from $p(\pmb{\nu}_0,\pmb{\nu}_1,\theta|\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta=\mathbf{f})$:
@@ -51,43 +51,55 @@ The slice sampling exploits the following algorithm:
 2. Sample $\theta$ using slice sampling on $p^*(\theta|\pmb{\nu}_0,\pmb{\nu}_1)\propto L(\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta)$
 3. Return $\mathbf{f^{'}}=\pmb{\nu}_0\text{sin}\theta+\pmb{\nu}_1\text{cos}\theta$
 
-To avoitd proposing $\nu_{0}$ and $\nu_{1}$ in every iteration of the algorithm and to shrink the range of $\theta$ after every iteration, Murray, Adams and MacKay \cite{Murray} suggested a mature algorithm as follows:
+To avoid proposing $\nu_{0}$ and $\nu_{1}$ in every iteration of the algorithm and to shrink the range of $\theta$ after every iteration, Murray, Adams and MacKay \cite{Murray} suggested a mature algorithm as follows:
 
-1. Sample $\nu\sim{N(0,\Sigma)}$
-2. Sample $u\sim{Uniform[0,1]}$, let log$y\leftarrow$log$L(\bf{f})$ + log$u$
-3. Draw an initial proposal $\theta\sim{Uniform[0,2\pi]}$, define $[\theta_{min},\theta_{max}]\leftarrow{[\theta-2\pi,\theta]}$
-4. $\bf{f'}\leftarrow{\bf{f}\text{cos}\theta + \bf{\nu} sin\theta}$
-5. \bf{if} log$L(\bf{f'})$ > log$y$ \bf{then:}
-6.      Accept: \bf{return} \mathbf{f'}
-7. \bf{else:} shrink the range:
-8.     \bf{if} $\theta < 0$, \bf{then} $\theta_{min}\leftarrow{\theta}$ \bf{else:} $\theta_{max}\leftarrow{\theta}$
-9. $\theta\sim{Uniform[\theta_{min},\theta_{max}]}$
-10. \bf{Go to step 4}
+Input: $\mathbf{f}$, log$L$.
+
+1. Sample $\pmb{\nu}\sim\mathcal{N}(\pmb{\nu};\mathbf{0},\Sigma)$ (this defines the ellipse centered in the origine passing through $\mathbf{f}$ and $\pmb{\nu}$).
+2. Define the slice by sampling the height $y$:
+\begin{align*}
+u &\sim\text{Uniform}[0,1]\\
+\text{log}y &\leftarrow \text{log}L(\mathbf{f})+\text{log}u
+\end{align*}
+3. Define the bracket for the angles:
+\begin{align*}
+\theta &\sim\text{Uniform}[0,2\pi]\\
+[\theta_{\text{min}},\theta_{\text{max}}]&\leftarrow [\theta-2\pi,\theta]
+\end{align*}
+4. Propose a new status $\mathbf{f^{'}}\leftarrow\mathbf{f}\text{cos}\theta+\pmb{\nu}\text{sin}\theta$
+5. If $\text{log}L(\mathbf{f^{'}})>\text{log}y$ then:
+6.    $\qquad$Accept: return $\mathbf{f^{'}}$
+7. Else:
+    $\qquad$Shrink the bracket:
+8. $\qquad$if $\theta<0$ then: $\theta_{min}\leftarrow\theta$, else $\theta_{max}\leftarrow\theta$
+9. $\qquad\theta\sim\text{Uniform}[\theta_{min}, \theta_{max}]$
+10. $\qquad$Go to 4.
 
 ## 2.3 Reversibility of Elliptical Slice Sampling
 
 The Elliptical Slice Sampling algorithm updates $\bf{f}$ by proposing $\bf{f_1}$,...,$\bf{f_k}$,... based on $\theta_1$,...,$\theta_k$,..., until $\bf{f_K}$ satisfies step 5 in the algorithm. Then $\bf{f_K} = \bf{f'}$. This procedure is reversible. We can verify this by showing
 
 \begin{equation}
-p(\bf{f},y,\bf{\nu},\{\theta_k\}) = p(\bf{f'},y,\bf{\nu'},\{\theta_k'\})
+p(\mathbf{f}, y, \pmb{\nu},\lbrace\theta_k\rbrace)=p(\mathbf{f'}, y, \pmb{\nu'},\lbrace\theta_k^{'}\rbrace)
 \end{equation}
 
-This joint distribution is the multiplication of target distribution and proposals of ${\theta_k}$ and $\nu$:
+This joint distribution is the multiplication of target distribution and proposals of ${\theta_k}$ and $\pmb{\nu}$:
+
+\begin{align}\label{newtarget}
+p(\mathbf{f}, y, \pmb{\nu},\lbrace\theta_k\rbrace)&=p^*(\mathbf{f})p(y|\mathbf{f})p(\pmb{\nu})p(\lbrace\theta_k\rbrace|\mathbf{f},\pmb{\nu},y)\propto\\
+&\propto\mathcal{N}(\mathbf{f};\mathbf{0},\Sigma)L(\mathbf{f})\mathcal{N}(\pmb{\nu};\mathbf{0},\Sigma)\frac{1}{L(\mathbf{f})}p(\lbrace\theta_k\rbrace|\mathbf{f},\pmb{\nu},y)
+\end{align}
+
+Another variable $\pmb{\nu}_k$ is added which is updated in every iteration, such that:
 
 \begin{equation}
-p(\bf{f},y,\bf{\nu},{\theta_k}) = p^*(\bf{f})p(y|\bf{f})p(\bf{\nu})p(\{\theta_k\}|\bf{f},\bf{\nu},y) = \frac{1}{Z}N(\bf{f},0,\Sigma)N(\bf{\nu};0,\Sigma)p(\{\theta_k\}|\bf{f},\bf{\nu},y)
-\end{equation}
-
-Another variable $\nu_k$ is added which is updated in every iteration, such that:
-
-\begin{equation}
-\nu_k = \nu cos(\theta_k) - \bf{f}sin(\theta_k), k=1,...,K
+\pmb{\nu}_k = \pmb{\nu} \text{cos}(\theta_k) - \mathbf{f}\text{sin}(\theta_k)\qquad k=1,...,K
 \end{equation}
 
 Then we have:
 
-\begin{equation}
-N(\bf{f},0,\Sigma)N(\nu;0,\Sigma) = N(\bf{f_k},0,\Sigma)N(\bf{\nu};0,\Sigma) \forall{k}
+\begin{equation}\label{gaussians}
+\mathcal{N}(\pmb{\nu}_k;\mathbf{0},\Sigma)\mathcal{N}(\mathbf{f}_k;\mathbf{0},\Sigma)=\mathcal{N}(\pmb{\nu};\mathbf{0},\Sigma)\mathcal{N}(\mathbf{f};\mathbf{0},\Sigma) \qquad\forall{k}
 \end{equation}
 
 This can be easily proved by computing Jacobian matrix, which has determinat equalling 1 in this case.
@@ -95,20 +107,16 @@ This can be easily proved by computing Jacobian matrix, which has determinat equ
 $\theta = 0$ corresponds to the location of $\bf{f}$. When we reverse the procedure, the location of $\bf{f'}$ corresponds to $\theta' = 0$. So the relative angle of the location of $\bf{f}$ is $-\theta_K$. By generating the same $y$, $\nu$ and angle:
 
 \begin{equation}
-\theta_k' = 
-\begin{cases}
-\theta_k-\theta_K, & k<K\\
-- \theta_K, & k=K
-\end{cases}
+\theta_k' = \theta_k-\theta_K
 \end{equation}
 
 we can return to $\bf{f}$. So the following equation holds:
 
-\begin{equation}
-p(\{\theta_k\}|\bf{f},\bf{\nu},y) = p(\{\theta_k'\}|\bf{f'},\bf{\nu'},y)
+\begin{equation}\label{angles}
+p(\lbrace\theta_k\rbrace|\mathbf{f},\pmb{\nu},y)=p(\lbrace\theta_k^{'}\rbrace|\mathbf{f'},\pmb{\nu'},y)
 \end{equation}
 
-This will lead to the reversibility of the algorithm.
+This will lead to the reversibility of the algorithm by substituting $\ref{angles}$ and $\ref{gaussians}$ in $\ref{newtarget}$.
 
 # 3. Experiment
 In this section, we will validate the elliptical slice sampling algorithm on 2 models: Gaussian regression and Log Gaussian Cox process, and compare this algorithm with the Metropolis-Hastings algorithm adapted by Neal \cite{Neal}.
