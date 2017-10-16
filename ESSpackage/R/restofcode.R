@@ -10,6 +10,7 @@ make.mvn <- function(mean, vcv) {
   }
 }
 
+
 ess_llk = function(f,sigma,llk,n){
   loglik = numeric(n)
   loglik[1] = llk(f)
@@ -292,3 +293,76 @@ NMH_tuned = function(f,sigma,llk,n,stepsize,threshold){
 
 ## Iain Murray gives stepsize = 0.05 for gaussian regression
 ## stepsize = 0.1 for log gaussian cox process
+
+
+## Adaptive Metropolis Hastings
+library(mvtnorm)
+AdaptMH = function(f,sigma,llk,n,beta,N){
+  fs = matrix(0,n,length(f))
+  fs[1,] = f
+  if((n-1) <= 2 * N){
+    for(j in 1:(n-1)){
+      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      mhr = mdmvnorm(x = f1,mean = rep(0,N),sigma,log=TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+      if(log(runif(1)) < mhr){
+        fs[j+1,] = f1
+      }
+      else{
+        fs[j+1,] = f
+      }
+      f = f1
+      print(j)
+    }
+  }
+  else{
+    for(j in 1:(2*N)){
+      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+      if(log(runif(1)) < mhr){
+        fs[j+1,] = f1
+      }
+      else{
+        fs[j+1,] = f
+      }
+       f = f1
+       print(j)
+     }
+    for(j in (2*N + 1):(n-1)){
+      v1 = mvrnorm(n = 1, mu = f, (2.38^2) * sigma / N)
+      v2 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      f1 = (1-beta) * v1 + beta * v2
+      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+      if(log(runif(1)) < mhr){
+        fs[j+1,] = f1
+      }
+      else{
+        fs[j+1,] = f
+      }
+       f = f1
+       print(j)
+    }
+  }
+  return(list(fs = fs))
+}
+
+## try it on toy example
+try = AdaptMH(f = c(1,1),sigma = matrix(c(1,0,0,1),2,2),llk = llk_lgcp(yn = observation_lgcp,m=m),n=100,beta=0.05,N=2)
+x_toy = matrix(runif(2),1,2)
+sigma_toy = cov_mat(1,1,x_toy,2)
+f_toy = mvrnorm(n = 1, mu = rep(0,dim(sigma_toy)[1]), sigma_toy)
+observation_toy = c(rnorm(1,f_toy[1],sd = 0.3),rnorm(1,f_toy[2],sd = 0.3))
+r_toy = AdaptMH(f=f_toy,sigma=sigma_toy,llk=gr(yn = observation_toy,std = std_gr),n=100000,beta = 0.05,N=2)
+library(MVN)
+pdf("qqplot.pdf",6,4)
+uniPlot(r_toy$fs,type = "qqplot")
+dev.off()
+pdf("histogram.pdf",6,4)
+uniPlot(r_toy$fs,type = "histogram")
+dev.off()
+results1 = mardiaTest(r_toy$fs,qqplot = FALSE)
+pdf("3dplot.pdf",6,4)
+par(mfrow = c(1,2))
+mvnPlot(results1, type = "persp", default = TRUE)
+mvnPlot(results1, type = "contour", default = TRUE,xlab="f_1",ylab="f_2")
+dev.off()
+
