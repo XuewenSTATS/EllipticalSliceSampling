@@ -247,7 +247,7 @@ NMH = function(f,sigma,llk,n,stepsize){
     nu = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
     logy = log(runif(1)) + llk(f)
     f1 = sqrt(1-stepsize^2) * f + stepsize * nu
-    if(llk(f1) > log(y)) {
+    if(llk(f1) > logy) {
       fs[j+1,] = f1
       loglik[j+1] = llk(f1)
     }
@@ -260,36 +260,6 @@ NMH = function(f,sigma,llk,n,stepsize){
   return(list(fs = fs, loglik = loglik))
 }
 
-## tune stepsize automatically to reach a good acceptance rate
-NMH_tuned = function(f,sigma,llk,n,stepsize,threshold){
-  fs = matrix(0,n,length(f))
-  fs[1,] = f
-  loglik = numeric(n)
-  loglik[1] = llk(f)
-  update = numeric(n)
-  update[1] = 1
-  for(j in 1:(n-1)){
-    nu = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
-    logy = log(runif(1)) + llk(f)
-    f1 = sqrt(1-stepsize^2) * f + stepsize * nu
-    if(llk(f1) > log(y)) {
-      fs[j+1,] = f1
-      loglik[j+1] = llk(f1)
-      update[j+1] = 1
-    }
-    else{
-      fs[j+1,] = fs[j,]
-      loglik[j+1] = loglik[j]
-      update[j+1] = 0
-    }
-    f = fs[j+1,]
-    acceptrate = sum(update)/(j+1)
-    if(acceptrate < threshold){
-      stepsize = 0.75 * stepsize
-    }
-  }
-  return(list(fs = fs, loglik = loglik))
-}
 
 ## Iain Murray gives stepsize = 0.05 for gaussian regression
 ## stepsize = 0.1 for log gaussian cox process
@@ -303,14 +273,14 @@ AdaptMH = function(f,sigma,llk,n,beta,N){
   if((n-1) <= 2 * N){
     for(j in 1:(n-1)){
       f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
-      mhr = mdmvnorm(x = f1,mean = rep(0,N),sigma,log=TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log=TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
       if(log(runif(1)) < mhr){
         fs[j+1,] = f1
       }
       else{
         fs[j+1,] = f
       }
-      f = f1
+      f = fs[j+1,]
       print(j)
     }
   }
@@ -324,11 +294,11 @@ AdaptMH = function(f,sigma,llk,n,beta,N){
       else{
         fs[j+1,] = f
       }
-       f = f1
+       f = fs[j+1,]
        print(j)
      }
     for(j in (2*N + 1):(n-1)){
-      v1 = mvrnorm(n = 1, mu = f, (2.38^2) * sigma / N)
+      v1 = mvrnorm(n = 1, mu = f, (2.38^2) * cor(fs[1:j-1,]) / N)
       v2 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
       f1 = (1-beta) * v1 + beta * v2
       mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
@@ -338,7 +308,7 @@ AdaptMH = function(f,sigma,llk,n,beta,N){
       else{
         fs[j+1,] = f
       }
-       f = f1
+       f = fs[j+1,]
        print(j)
     }
   }
@@ -346,12 +316,13 @@ AdaptMH = function(f,sigma,llk,n,beta,N){
 }
 
 ## try it on toy example
-try = AdaptMH(f = c(1,1),sigma = matrix(c(1,0,0,1),2,2),llk = llk_lgcp(yn = observation_lgcp,m=m),n=100,beta=0.05,N=2)
+try = AdaptMH(f = c(1,1),sigma = matrix(c(1,0,0,1),2,2),llk = gr(yn = observation_toy,std = std_gr),n=100,beta=0.05,N=2)
 x_toy = matrix(runif(2),1,2)
 sigma_toy = cov_mat(1,1,x_toy,2)
 f_toy = mvrnorm(n = 1, mu = rep(0,dim(sigma_toy)[1]), sigma_toy)
 observation_toy = c(rnorm(1,f_toy[1],sd = 0.3),rnorm(1,f_toy[2],sd = 0.3))
-r_toy = AdaptMH(f=f_toy,sigma=sigma_toy,llk=gr(yn = observation_toy,std = std_gr),n=100000,beta = 0.05,N=2)
+r_toy = AdaptMH(f=f_toy,sigma=sigma_toy,llk=gr(yn = observation_toy,std = std_gr),n=800000,beta = 0.4,N=2)
+r_toy = NMH(f=f_toy,sigma=sigma_toy,llk=gr(yn = observation_toy,std = std_gr),n=100000,stepsize=0.2)
 library(MVN)
 pdf("qqplot.pdf",6,4)
 uniPlot(r_toy$fs,type = "qqplot")
@@ -359,10 +330,61 @@ dev.off()
 pdf("histogram.pdf",6,4)
 uniPlot(r_toy$fs,type = "histogram")
 dev.off()
-results1 = mardiaTest(r_toy$fs,qqplot = FALSE)
+results1 = mardiaTest(r_toy$fs[90000:100000,],qqplot = FALSE)
 pdf("3dplot.pdf",6,4)
 par(mfrow = c(1,2))
 mvnPlot(results1, type = "persp", default = TRUE)
 mvnPlot(results1, type = "contour", default = TRUE,xlab="f_1",ylab="f_2")
 dev.off()
+plot(r_toy$fs[,1],type="l")
+library(ICS)
+mvnorm.kur.test(r_toy$fs[-(1:200000),])
+mvnorm.skew.test(r_toy$fs[-(1:200000),])
+plot(r_toy$loglik,type="l")
 
+df = data.frame(r_toy$fs[-(1:200000),])
+ggplot()+geom_density2d(aes(x = X1,y=X2),data = df)
+
+
+write.csv(r_toy$fs,"adapt.csv")
+write.csv(r_toy$loglik,"adaptllk.csv")
+####################################################################
+############# COMPARISON FOR 2-DIM GAUSSIAN REGRESSION #############
+####################################################################
+
+set.seed(1)
+
+# Prior things
+x_toy = matrix(runif(2),1,2)
+sigma_toy = cov_mat(1,1,x_toy,2)
+f_toy_new = mvrnorm(n = 1, mu = rep(0,dim(sigma_toy)[1]), sigma_toy)
+
+#Likelihood things
+std_gr = 0.3
+sd_lik <- matrix(c(0.09,0,0,0.09),2,2)
+observation_toy_new = c(rnorm(1,f_toy_new[1],sd = 0.3),rnorm(1,f_toy_new[2],sd = 0.3))
+
+# Posterior things
+mu_post <- solve(solve(sigma_toy)+solve(sd_lik))%*%solve(sd_lik)%*%(observation_toy_new)
+sd_post <- solve(solve(sigma_toy)+solve(sd_lik))
+
+# 3 models: Theoretical, ESS, NealMH
+fpost_toy <- mvrnorm(100000, mu_post, sd_post)
+r_toy_new = ess(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=100000)
+neal_toy <- NMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),100000,0.2)
+
+# Testing Normality (ehm...)
+library(ICS)
+mvnorm.skew.test(neal_toy$fs)
+mvnorm.skew.test(fpost_toy)
+mvnorm.skew.test(r_toy_new)
+
+# Contour Plot of the 3 models
+df <- data.frame(fpost_toy)
+df_1 <- data.frame(r_toy_new)
+df_2 <- data.frame(neal_toy$fs)
+p <- ggplot() + geom_density2d(aes(x = X1, y = X2, colour="green"), data = df) +
+  geom_density2d(aes(x = X1, y = X2, colour="blue"), data = df_1) +
+  geom_density2d(aes(x = X1, y = X2, col="red"), data = df_2) +
+  scale_colour_manual(values=c("green", "blue", "red"),labels = c("Theoretical", "ESS", "NealMH"), name="Sampling methods")
+print(p + ggtitle("Comparison of contour plots"))
