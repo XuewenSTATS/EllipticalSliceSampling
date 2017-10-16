@@ -8,7 +8,7 @@ vignette: >
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
-# 1. Introduction
+# 1. Introduction 
 
 # 2. Methodology
 ## 2.1 Slice sampling
