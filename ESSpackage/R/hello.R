@@ -3,7 +3,7 @@
 #' This is an example function named 'ess'
 #' which implement Elliptical Slice Sampling algorithm.
 #'
-#' Elliptical Slice Sampling
+#'
 #'
 #' @param f initial state
 #' @param sigma covariance matrix of f
@@ -45,7 +45,6 @@ ess = function(f,sigma,llk,n){
 #' This is an example function named 'cov_mat'
 #' which gives the covariance matrix of f, the vector of latent variables.
 #'
-#' Covariance Matrix Elliptical Slice Sampling
 #'
 #' @param sig_var signal variance
 #' @param l lengthscale parameter
@@ -69,14 +68,108 @@ cov_mat = function(sig_var ,l,x,N){
 }
 
 
+#' Neal's Metropolis Hastings (1999)
+#'
+#' This is a function named 'NMH'
+#' which implement the Metropolis Hastings algorithm adapted by Neal in 1999.
+#'
+#'
+#'
+#' @param f initial state
+#' @param sigma covariance matrix of f
+#' @param llk log likelihood function
+#' @param n number of iterations
+#' @param stepsize this is the fixed number considered in proposal
+#' @return an n x N matrix where N is the dimension of f
+#' @export f
+
+NMH = function(f,sigma,llk,n,stepsize){
+  fs = matrix(0,n,length(f))
+  fs[1,] = f
+  loglik = numeric(n)
+  loglik[1] = llk(f)
+  for(j in 1:(n-1)){
+    nu = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
+    logy = log(runif(1)) + llk(f)
+    f1 = sqrt(1-stepsize^2) * f + stepsize * nu
+    if(llk(f1) > logy) {
+      fs[j+1,] = f1
+      loglik[j+1] = llk(f1)
+    }
+    else{
+      fs[j+1,] = fs[j,]
+      loglik[j+1] = loglik[j]
+    }
+    f = fs[j+1,]
+  }
+  return(list(fs = fs, loglik = loglik))
+}
 
 
+#' Adaptive Metropolis Hastings
+#'
+#' This is a function named 'AdaptMH'
+#' which implement the Metropolis Hastings algorithm proposed by Gareth and Jeffrey (2012).
+#'
+#' load package "mvtnorm" before using this function
+#'
+#' @param f initial state
+#' @param sigma covariance matrix of f
+#' @param N dimension of f
+#' @param llk log likelihood function
+#' @param n number of iterations
+#' @param beta this is the fixed number considered in proposal
+#' @return an n x N matrix where N is the dimension of f
+#' @export f
 
-
-
-
-
-
+AdaptMH = function(f,sigma,llk,n,beta,N){
+  library(mvtnorm)
+  fs = matrix(0,n,length(f))
+  fs[1,] = f
+  if((n-1) <= 2 * N){
+    for(j in 1:(n-1)){
+      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log=TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+      if(log(runif(1)) < mhr){
+        fs[j+1,] = f1
+      }
+      else{
+        fs[j+1,] = f
+      }
+      f = fs[j+1,]
+      print(j)
+    }
+  }
+  else{
+    for(j in 1:(2*N)){
+      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+      if(log(runif(1)) < mhr){
+        fs[j+1,] = f1
+      }
+      else{
+        fs[j+1,] = f
+      }
+      f = fs[j+1,]
+      print(j)
+    }
+    for(j in (2*N + 1):(n-1)){
+      v1 = mvrnorm(n = 1, mu = f, (2.38^2) * cor(fs[1:j-1,]) / N)
+      v2 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      f1 = (1-beta) * v1 + beta * v2
+      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+      if(log(runif(1)) < mhr){
+        fs[j+1,] = f1
+      }
+      else{
+        fs[j+1,] = f
+      }
+      f = fs[j+1,]
+      print(j)
+    }
+  }
+  return(list(fs = fs))
+}
 
 
 
