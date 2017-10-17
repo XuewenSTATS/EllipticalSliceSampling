@@ -12,9 +12,7 @@ make.mvn <- function(mean, vcv) {
 
 
 ess_llk = function(f,sigma,llk,n){
-  loglik = numeric(n)
-  loglik[1] = llk(f)
-  for(j in 1:(n-1)) {
+  foreach(j = 1:(n-1), .combine = "c",.packages = "MASS") %dopar% {
     nu = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
     logy = log(runif(1)) + llk(f)
     theta = runif(1,0,2 * pi)
@@ -32,32 +30,20 @@ ess_llk = function(f,sigma,llk,n){
       theta = runif(1,min,max)
       f1 = f * cos(theta) + nu * sin(theta)
     }
-    loglik[j+1] = llk(f1)
+    llk(f1)
     f = f1
-    print(j)
   }
-  return(loglik = loglik)
 }
-
-
-ess_llk = function(f,sigma,llk,n){
-  foreach(j = 1:(n-1), .combine = "c",.packages = "MASS",.export = "observation1") %dopar% {
+NMH_llk = function(f,sigma,llk,n,stepsize){
+  foreach(j = 1:(n-1),.combine = "c",.packages = "MASS") %dopar% {
     nu = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
     logy = log(runif(1)) + llk(f)
-    theta = runif(1,0,2 * pi)
-    min = theta - 2 * pi
-    max = theta
-    f1 = f * cos(theta) + nu * sin(theta)
-    ## loop
-    while(llk(f1) < logy){
-      if(theta < 0){
-        min = theta
-      }
-      else{
-        max = theta
-      }
-      theta = runif(1,min,max)
-      f1 = f * cos(theta) + nu * sin(theta)
+    f1 = sqrt(1-stepsize^2) * f + stepsize * nu
+    if(llk(f1) > logy) {
+      f1 = f1
+    }
+    else{
+      f1 = f
     }
     llk(f1)
     f = f1
@@ -121,9 +107,9 @@ cl = makeCluster(4)
 library(foreach)
 library(doSNOW)
 registerDoSNOW(cl)
-llk=gr(yn = observation1,std = std_gr)
-clusterExport(cl,list("observation1","llk","std_gr"))
-system.time({r1llk = ess_llk(f=f1,sigma=sigma1,llk=llk,n=100000)})
+llk=gr(yn = observation10,std = std_gr)
+clusterExport(cl,list("observation10","llk","std_gr"))
+system.time({r1llk = ess_llk(f=f10,sigma=sigma10,llk=llk,n=1000000)})
 stopCluster(cl)
 r1 = ess(f=f1,sigma=sigma1,llk=gr(yn = observation1,std = std_gr),n=1000)
 system.time(ess(f=f1,sigma=sigma,llk=gr(yn = observation,std = std_gr),n=1000))  ## 20.148
@@ -244,7 +230,7 @@ llk_lgcp = function(yn,m){
     sum(dpois(yn,exp(f+m),log = TRUE))
   }
 }
-observation_lgcp = get_mine_data(bin_width = 50,num_days = 40550,num_events = 191)$yy
+observation_lgcp = get_mine_data(bin_width = 400,num_days = 40550,num_events = 191)$yy
 ## simulate f (length = 811)
 x_lgcp = matrix(runif(N_lgcp),nrow = 1,ncol = N_lgcp)
 sigma_lgcp = cov_mat(sig_var = sig_var_lgcp,l = l_lgcp,x_lgcp,N=N_lgcp)
@@ -301,40 +287,42 @@ NMH = function(f,sigma,llk,n,stepsize){
 
 ## Adaptive Metropolis Hastings
 library(mvtnorm)
-AdaptMH = function(f,sigma,llk,n,beta,N){
+AdaptMH = function(f,sigma,llk,n,beta,N,cov_post){
   fs = matrix(0,n,length(f))
   fs[1,] = f
-  if((n-1) <= 2 * N){
+  # if((n-1) <= 2 * N){
+  #   for(j in 1:(n-1)){
+  #     f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+  #     mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log=TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+  #     if(log(runif(1)) < mhr){
+  #       fs[j+1,] = f1
+  #     }
+  #     else{
+  #       fs[j+1,] = f
+  #     }
+  #     f = fs[j+1,]
+  #     print(j)
+  #   }
+  # }
+  # else{
+    # for(j in 1:(2*N)){
+    #   f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+    #   mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+    #   if(log(runif(1)) < mhr){
+    #     fs[j+1,] = f1
+    #   }
+    #   else{
+    #     fs[j+1,] = f
+    #   }
+    #    f = fs[j+1,]
+    #    print(j)
+    #  }
+    #for(j in (2*N + 1):(n-1)){
     for(j in 1:(n-1)){
-      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
-      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log=TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
-      if(log(runif(1)) < mhr){
-        fs[j+1,] = f1
-      }
-      else{
-        fs[j+1,] = f
-      }
-      f = fs[j+1,]
-      print(j)
-    }
-  }
-  else{
-    for(j in 1:(2*N)){
-      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
-      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
-      if(log(runif(1)) < mhr){
-        fs[j+1,] = f1
-      }
-      else{
-        fs[j+1,] = f
-      }
-       f = fs[j+1,]
-       print(j)
-     }
-    for(j in (2*N + 1):(n-1)){
-      v1 = mvrnorm(n = 1, mu = f, (2.38^2) * cor(fs[1:j-1,]) / N)
-      v2 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
-      f1 = (1-beta) * v1 + beta * v2
+      #v1 = mvrnorm(n = 1, mu = f, (2.38^2) * cor(fs[1:j-1,]) / N)
+      f1 = mvrnorm(n = 1, mu = f, (2.38^2) * cov_post / N)
+      #v2 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      #f1 = (1-beta) * v1 + beta * v2
       mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
       if(log(runif(1)) < mhr){
         fs[j+1,] = f1
@@ -345,8 +333,8 @@ AdaptMH = function(f,sigma,llk,n,beta,N){
        f = fs[j+1,]
        print(j)
     }
-  }
-  return(list(fs = fs))
+  #}
+  return(fs = fs)
 }
 
 ## try it on toy example
@@ -387,7 +375,9 @@ write.csv(r_toy$loglik,"adaptllk.csv")
 ####################################################################
 
 set.seed(1)
-
+library(MVN)
+library(MASS)
+library(mvtnorm)
 # Prior things
 x_toy = matrix(runif(2),1,2)
 sigma_toy = cov_mat(1,1,x_toy,2)
@@ -406,19 +396,24 @@ sd_post <- solve(solve(sigma_toy)+solve(sd_lik))
 fpost_toy <- mvrnorm(100000, mu_post, sd_post)
 r_toy_new = ess(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=100000)
 neal_toy <- NMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),100000,0.2)
+AdaptMH_toy <- AdaptMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=500000,beta=0.05,N=2,cov_post=sd_post)
 
 # Testing Normality (ehm...)
 library(ICS)
 mvnorm.skew.test(neal_toy$fs)
 mvnorm.skew.test(fpost_toy)
 mvnorm.skew.test(r_toy_new)
+mvnorm.skew.test(AdaptMH_toy)
 
 # Contour Plot of the 3 models
 df <- data.frame(fpost_toy)
 df_1 <- data.frame(r_toy_new)
 df_2 <- data.frame(neal_toy$fs)
-p <- ggplot() + geom_density2d(aes(x = X1, y = X2, colour="green"), data = df) +
+df_3 <- data.frame(AdaptMH_toy)
+library(ggplot2)
+ggplot() + geom_density2d(aes(x = X1, y = X2, colour="green"), data = df) +
   geom_density2d(aes(x = X1, y = X2, colour="blue"), data = df_1) +
   geom_density2d(aes(x = X1, y = X2, col="red"), data = df_2) +
-  scale_colour_manual(values=c("green", "blue", "red"),labels = c("Theoretical", "ESS", "NealMH"), name="Sampling methods")
+  geom_density2d(aes(x = X1, y = X2, col="yellow"), data = df_3) +
+  scale_colour_manual(values=c("green", "blue", "red", "yellow"),labels = c("Theoretical", "ESS", "NealMH", "AdaptiveMH"), name="Sampling methods")
 print(p + ggtitle("Comparison of contour plots"))

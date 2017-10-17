@@ -379,6 +379,7 @@ test_check("ESSpackage",{## one possible log likelihood
     # Testing Normality (ehm...)
     library(ICS)
     mvnorm.skew.test(neal_toy$fs)
+    
     mvnorm.skew.test(fpost_toy)
     mvnorm.skew.test(r_toy_new)
     

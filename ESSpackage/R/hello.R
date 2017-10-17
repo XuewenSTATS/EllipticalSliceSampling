@@ -118,58 +118,24 @@ NMH = function(f,sigma,llk,n,stepsize){
 #' @param N dimension of f
 #' @param llk log likelihood function
 #' @param n number of iterations
-#' @param beta this is the fixed number considered in proposal
+#' @param cov_post this is the theoretical covariance matrix of the posterior
 #' @return an n x N matrix where N is the dimension of f
 #' @export f
 
-AdaptMH = function(f,sigma,llk,n,beta,N){
-  library(mvtnorm)
+AdaptMH = function(f,sigma,llk,n,N,cov_post){
   fs = matrix(0,n,length(f))
   fs[1,] = f
-  if((n-1) <= 2 * N){
-    for(j in 1:(n-1)){
-      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
-      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log=TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
-      if(log(runif(1)) < mhr){
-        fs[j+1,] = f1
-      }
-      else{
-        fs[j+1,] = f
-      }
-      f = fs[j+1,]
-      print(j)
+  for(j in 1:(n-1)){
+    f1 = mvrnorm(n = 1, mu = f, (2.38^2) * cov_post / N)
+    mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
+    if(log(runif(1)) < mhr){
+      fs[j+1,] = f1
     }
+    else{
+      fs[j+1,] = f
+    }
+    f = fs[j+1,]
+    print(j)
   }
-  else{
-    for(j in 1:(2*N)){
-      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
-      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
-      if(log(runif(1)) < mhr){
-        fs[j+1,] = f1
-      }
-      else{
-        fs[j+1,] = f
-      }
-      f = fs[j+1,]
-      print(j)
-    }
-    for(j in (2*N + 1):(n-1)){
-      v1 = mvrnorm(n = 1, mu = f, (2.38^2) * cor(fs[1:j-1,]) / N)
-      v2 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
-      f1 = (1-beta) * v1 + beta * v2
-      mhr = dmvnorm(x = f1,mean = rep(0,N),sigma,log = TRUE) + llk(f1) - dmvnorm(x = f,mean = rep(0,N),sigma,log=TRUE) - llk(f)
-      if(log(runif(1)) < mhr){
-        fs[j+1,] = f1
-      }
-      else{
-        fs[j+1,] = f
-      }
-      f = fs[j+1,]
-      print(j)
-    }
-  }
-  return(list(fs = fs))
+  return(fs = fs)
 }
-
-
-
