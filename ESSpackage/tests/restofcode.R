@@ -39,6 +39,31 @@ ess_llk = function(f,sigma,llk,n){
   return(loglik = loglik)
 }
 
+
+ess_llk = function(f,sigma,llk,n){
+  foreach(j = 1:(n-1), .combine = "c",.packages = "MASS",.export = "observation1") %dopar% {
+    nu = mvrnorm(n = 1, mu = rep(0,dim(sigma)[1]), sigma)
+    logy = log(runif(1)) + llk(f)
+    theta = runif(1,0,2 * pi)
+    min = theta - 2 * pi
+    max = theta
+    f1 = f * cos(theta) + nu * sin(theta)
+    ## loop
+    while(llk(f1) < logy){
+      if(theta < 0){
+        min = theta
+      }
+      else{
+        max = theta
+      }
+      theta = runif(1,min,max)
+      f1 = f * cos(theta) + nu * sin(theta)
+    }
+    llk(f1)
+    f = f1
+  }
+}
+
 ## library(mvnormtest)
 ## mshapiro.test(t(ess(f,sigma,llk = make.mvn(c(0,0),sigma),n=100)))
 ## not work for univariate gaussian (checked by shapiro test)
@@ -91,6 +116,15 @@ mvnPlot(results1, type = "contour", default = TRUE,xlab="f_1",ylab="f_2")
 dev.off()
 
 ## start with 1 dimensional example
+library(parallel)
+cl = makeCluster(4)
+library(foreach)
+library(doSNOW)
+registerDoSNOW(cl)
+llk=gr(yn = observation1,std = std_gr)
+clusterExport(cl,list("observation1","llk","std_gr"))
+system.time({r1llk = ess_llk(f=f1,sigma=sigma1,llk=llk,n=100000)})
+stopCluster(cl)
 r1 = ess(f=f1,sigma=sigma1,llk=gr(yn = observation1,std = std_gr),n=1000)
 system.time(ess(f=f1,sigma=sigma,llk=gr(yn = observation,std = std_gr),n=1000))  ## 20.148
 llk=gr(yn = observation1,std = std_gr)
