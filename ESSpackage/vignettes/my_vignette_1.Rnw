@@ -1,0 +1,12 @@
+
+---
+  title: "Elliptical Slice Sampling"
+author: "Francesca Panero and Xuewen Yu"
+date: "October 20, 2017"
+output: pdf_document
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+%\VignetteEngine{knitr::rmarkdown}
+%\VignetteEncoding{UTF-8}
+---
+  
