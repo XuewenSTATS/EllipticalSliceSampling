@@ -21,7 +21,7 @@
 We present the R package `ESS', which provides an implementation of the Markov chain Monte Carlo method presented by Murray, Adams and MacKay in 2010 in the paper ``Elliptical slice sampling" published in Journal of Machine Learning Research $\cite{MAM}$.
 \end{abstract}
 
-\section{Introduction}
+\section{Slice sampling}
 
 Slice sampling was introduced by Neal in 2003 \cite{Neal2003} in the homonym paper published in the Annals of Statistics. Neal's idea was to present a new approach to sample from a probability density function, that tried to overcome some drawbacks of the two major MCMC methods of sampling: the Gibbs sampler and the Metropolis Hastings method.
 
@@ -31,7 +31,7 @@ The aim of these three methods is to sample from a probability density function 
 
 %Slice sampling tries to overcome these flaws in the previous methods. 
 The basic idea of slice sampling lies in the fact that if we want to sample $x$ from a distribution $p(x)$ that is proportional to a certain function $f(x)$, it would be sufficient just to sample uniformly from the area below $f(x)$.
-By defining an auxiliary random variable $y$, we exploit Gibbs sampler to sample from the two full conditional distributions. In particular, $y|x$ is distributed as an $Uniform(0,f(x))$ and $x|y$ is distributed as an uniform on the so called slice $S=\lbrace x: y<f(x)\rbrace$. The joint density of $x$ and $y$ is, then $$p(x,y)=\begin{cases}1/Z\quad&\text{ for }0<y<f(x)\\0\quad&\text{ otherwise}\end{cases}$$where $Z=\int f(x)dx$. From this it can easily be seen that $p(x)=\int_0^{f(x)} p(x,y)dy=1/Zf(x)$ as desired. 
+By defining an auxiliary random variable $y$, we exploit Gibbs sampler to sample from the two full conditional distributions. In particular, $y|x$ is distributed as an $Uniform(0,f(x))$ and $x|y$ is distributed as an uniform on the so called slice $S=\lbrace x: y<f(x)\rbrace$. The joint density of $x$ and $y$ is, then $$p(x,y)=\begin{cases}1/Z\quad&\text{ for }0<y<f(x)\\0\quad&\text{ otherwise}\end{cases}$$where $Z=\int f(x)dx$. From this it can easily be seen that $p(x)=\int_0^{f(x)} p(x,y)dy=(1/Z)f(x)$ as desired. 
 %Sampling on the slice can be difficult, and it is sometimes substituted with some update for $x$ which leaves invariant the uniform distribution.
 
 \section{Elliptical Slice Sampling}
@@ -40,7 +40,7 @@ Elliptical Slice Sampling is a particular case of MCMC methods that avoids the t
 
 Let $\mathbf{f}$ be the vector of latent variables distributed as a Gaussian distribution with zero vector mean and covariance matrix $\Sigma$: $$\mathbf{f}\sim\mathcal{N}(\mathbf{f};\mathbf{0}, \Sigma)=|2\pi\Sigma|^{-1/2}\text{exp}\left(-\frac{1}{2}\mathbf{f}^T\Sigma^{-1}\mathbf{f}\right)$$ Let $$L(\mathbf{f})=p(\text{data}|\mathbf{f})$$ be the likelihood function. Our target distribution is the posterior of this model: $$p^*(\mathbf{f})\propto \mathcal{N}(\mathbf{f};\mathbf{0}, \Sigma)L(\mathbf{f}).$$
 
-Neal, in 1999, introduced the idea of a Metropolis-Hastings algorithm for this type of problems, by proposing as new state 
+Neal, in 1999 \cite{Neal}, introduced the idea of a Metropolis-Hastings algorithm for this type of problems, by proposing as new state 
 $$\mathbf{f^{'}}=\sqrt{1-\epsilon^2}\mathbf{f}+\epsilon\pmb{\nu},\qquad\pmb{\nu}\sim\mathcal{N}(\mathbf{0}, \Sigma)$$ where $\epsilon\in[-1,1]$ is a step-size parameter, and its varying defines half of an ellipse, having $\pmb{\nu}$ fixed. When $\epsilon=0$ we are resampling the same value. The probability of accepting the move is $$p(\text{accept})=\text{min}(1,L(\mathbf{f^{'}})/L(\mathbf{f}))$$ otherwise the next state is still $\mathbf{f}$. A drawback of this algorithm is that $\epsilon$ needs to be tuned so that the Markov chain can mix efficiently. A representation of the whole ellipse gives a richer choice of updates, so we will exploit: $$\mathbf{f^{'}}=\pmb{\nu}\text{sin}\theta+\mathbf{f}\text{cos}\theta$$ that represents the ellipse centered in the origin of the axes and passing through $\mathbf{f}$ and $\pmb{\nu}$, and $\theta$ is a new step-size parameter.
 
 To avoid the tuning of the parameter, the idea is to augment the prior to make $\theta$ a random variable and sample it exploiting the slice sampling. The augmented model becomes
@@ -156,12 +156,12 @@ In this section, we will validate the elliptical slice sampling algorithm on 2 m
 
 Observations $y_n$ are drawn from Normal distribution with mean $f_n$ and variance $\sigma_n^2$, for $n = 1,...,N$. Let $N$ denote the sample size, $D$ denote the number of dimensions. $\bf{f}$ $= (f_1,...,f_N) \sim{N(0,\Sigma)}$. To simulate $\bf{f}$, we define the covariance matrix as 
 \begin{equation}
-\Sigma_{i,j} = \sigma_{f}^{2}exp(-\frac{1}{2}\sum_{d=1}^{D}(x_{d,i} - x_{d,j})^2/l^2)
+\Sigma_{i,j} = \sigma_{f}^{2}\text{exp}\left(-\frac{1}{2}\sum_{d=1}^{D}(x_{d,i} - x_{d,j})^2/l^2\right)
 \end{equation}
-Covariance matrix $\Sigma$ is computed by inputing $\bf{X}$, which is a $D\times{N}$ matrix. $\bf{X} = [x_1,...,x_N]^T$, where the column vector $\bf{x_n}$, $n = 1,...,N$, is the 'feature' vector with $D$ dimensions and $f_n$ is a function of $x_n$. We will draw $\bf{x_n}$ from a D-dimensional unit hypercube for all $n$. 
-We can simulate observations $y_n$ after generating $f_n$ and fixing $\sigma_{n}^2$ and $\sigma_{f}^2$. $y_1,...,y_N$ are $\it{i.i.d}$ normal variables and $\bf{y|f} \sim{N(\bf{f},\sigma_n^2I)}$, so the likelihood function as a function of $\bf{f}$ is:
+The ovariance matrix $\Sigma$ is computed by inputing $\mathbf{X}=[\mathbf{x}_1,...,\mathbf{x}_N]^{'}$, which is a $D\times{N}$ matrix where the column vector $\bf{x}_n$, $n = 1,...,N$, are the input $D$-dimensional vectors that will be drawn from a $D$-dimensional unit hypercube for all $n$. 
+Fixing $l$ (called ``lengthscale" parameter), $\sigma_{f}^2$ and $\sigma_{n}^2$, we can generate $f_n$ and therefore simulate observations $y_n$, since $\mathbf{y}|\mathbf{f}\sim\mathcal{N}\left(\mathbf{f},\sigma_n^2\mathbf{I}\right)$and therefore their likelihood function as a function of $\bf{f}$ looks like:
 \begin{equation}
-L_r(\bf{f}) = \prod_{n=1}^{N} \it{N(y_n;f_n,\sigma_n^2)}
+L_r(\mathbf{f}) = \prod_{n=1}^{N} \mathcal{N}(y_n;f_n,\sigma_n^2)
 \end{equation}
 
 
@@ -212,7 +212,7 @@ The traces of log-likelihoods and the first dimension of outputs for $D=1$ are s
 
 \subsubsection{Log Gaussian Cox process}
 
-Data of mining disasters are provided by Jarret \cite{Jarrett}. There were 191 events happening during 40550 days which were partitioned into 811 bins each of which contains 50 days. Given the date of every event, the number of event happened in each bin can be computed, i.e. $y_n$. Let $l=13516$, $\sigma_f^2 = 1$, $N = 811$, $D=1$ and $m=log(191/811)$. The trace of the first dimension of the output is shown below.
+Data of mining disasters are provided by Jarrett et al. \cite{Jarrett}. There were 191 events happening during 40550 days which were partitioned into 811 bins each of which contains 50 days. Given the date of every event, the number of event happened in each bin can be computed, i.e. $y_n$. Let $l=13516$, $\sigma_f^2 = 1$, $N = 811$, $D=1$ and $m=log(191/811)$. The trace of the first dimension of the output is shown below.
 %\begin{figure}[h!]
 %\centering
 %\includegraphics[width = 10cm]{figureminedata.pdf}
@@ -220,11 +220,31 @@ Data of mining disasters are provided by Jarret \cite{Jarrett}. There were 191 e
 %\end{figure}
 
 \subsection{Comparison}
-We will compare the performance Elliptical Slice Sampling algorithm with the Metropolis-Hasting algorithm introduced by Neal \cite{Neal} 
-for both Gaussian regression model and log Gaussian Cox process model.The effective sample size, likelihood and CPU time for running 100000 iterations after 10000 burn in will be evaluated. We will perform 100 runs to discover the mean and standard deviation of the evaluations. 
+For Gaussian regression model, we will compare the performance of Elliptical Slice Sampling algorithm with the theorethical Bayesian model, the Metropolis-Hasting algorithm introduced by Neal \cite{Neal} and an adapted Metropolis-Hastings algorithm proposed by Roberts et al. in \cite{Roberts}. 
+
+In order to plot and compare the densities, we restricted the full $4$-models comparison on the $2$-dimensional case. Hence, $N=1$, $D=2$ and, as suggested in \cite{MAM}, we put $\sigma_n=0.3$, $\sigma_f=1$ and $l=1$.
+The full Bayesian model will look like this:
+\begin{align*}
+\mathbf{f}&\sim \mathcal{N}\left(\mathbf{0},\Sigma\right)\\
+\mathbf{y}|\mathbf{f}&\sim\mathcal{N}\left(\mathbf{f},\Sigma^{'}\right)\\
+\mathbf{f^'}&\sim\mathcal{N}\left(\left(\Sigma^{-1}+\Sigma^{'}^{-1}\right)^{-1}\Sigma^{'}^{-1}\mathbf{y},\left(\Sigma^{-1}+\Sigma^{'-1}\right)^{-1}\right)
+\end{align*}
+where $\Sigma$, as proposed before, is such that $\Sigma_{i,j}=\text{exp}\left(-\frac{1}{2}\sum_{d=1}^{2}(x_{d,i} - x_{d,j})^2\right)\,i,j=1,2$ and $\Sigma^{'}=\begin{bmatrix}0.09 & 0 \\ 0 & 0.09\end{bmatrix}$.
+We tested the normality of these samples with the `mvnorm.skew.test` from the `ICS` pckage and the null hypothesis was not rejected.
+In the figure \ref{comparison} we can compare the contour plots of the four samples coming from the theoretical model, the ESS algorithm, the Neal MH and the Adaptive MH. The number of samples for each model was $100000$. It is evident that the stationary distributions of the three algorithms are the correct one.
+\begin{figure}[h]\label{comparison}
+\centering
+\includegraphics[height=13cm,width = 15cm]{ComparisonGauss.pdf}
+\caption{Comparison of contour plots for Gaussian regression}
+\end{figure}
+We need to mention the fact that the we tried different step-size parameters for Neal's algorithm to obtain a Gaussian sample.
+
+
+We tested log Gaussian Cox process model.The effective sample size, likelihood and CPU time for running 100000 iterations after 10000 burn in will be evaluated. We will perform 100 runs to discover the mean and standard deviation of the evaluations. 
 
 
 \begin{thebibliography}{12}
+
 
 \bibitem{Jarrett}
 	Jarrett, R. G.  (1979)
@@ -251,6 +271,11 @@ Gaussian Process Priors},
 	Neal, R. M. (2003)
 	\emph{Slice sampling},
 	Annals of Statistics.
+
+\bibitem{Roberts}
+	Roberts, G. O., Rosenthal, J. S. (2009)
+	\emph{Examples of Adaptive MCMC},
+	Journal of Computational and Graphical Statistics.
 
 \end{thebibliography}
 
