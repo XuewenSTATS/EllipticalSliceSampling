@@ -5,6 +5,10 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage[left=2.5cm, right=2.5cm, top=3cm, bottom=3.00cm]{geometry}
+\usepackage{array}
+\usepackage{booktabs}
+\setlength{\heavyrulewidth}{1.5pt}
+\setlength{\abovetopsep}{4pt}
 
 % The line below tells R to use knitr on this.
 %\VignetteEngine{knitr::knitr}
@@ -19,14 +23,15 @@
 \maketitle
 
 \begin{abstract}
-We present the R package `ESS', which provides an implementation of the Markov chain Monte Carlo method presented by Murray, Adams and MacKay in 2010 in the paper ``Elliptical slice sampling" published in Journal of Machine Learning Research $\cite{MAM}$.
+In this project, we presented the R package `ESS', which provides an implementation of the Elliptical Slice Sampling method presented by Murray, Adams and MacKay in 2010 $\cite{MAM}$. We validated this algorithm on the simplest senario of Gaussian regression model and compared it with Metropolis Hastings algorithms on two Gaussian Process based likelihood models.
 \end{abstract}
 
-\section{Slice sampling}
+\section{Introduction}
 
 Slice sampling was introduced by Neal in 2003 \cite{Neal2003} in the homonym paper published in the Annals of Statistics. Neal's idea was to present a new approach to sample from a probability density function, that tried to overcome some drawbacks of the two major MCMC methods of sampling: the Gibbs sampler and the Metropolis Hastings method.
 
 The aim of these three methods is to sample from a probability density function from which we are not able to sample directly. Their basic idea is to construct a Markov chain that have as stationary distribution the target one we care about, and samples from this chain will eventually come from the desired distribution. 
+
 %Gibbs sampler exploits the possibility of sampling from the full conditional density functions of each parameter given all the others (that are usually simpler to deal with than the original joint distribution), since the complete vector of parameters will eventually be sampled from the joint distribution of these. No tuning of parameters of the chain is required, but we must be able to sample from these conditional distributions in order to implement the method, and sometimes this could not be the case. Nevertheless, some algorithms to overcome this problem have been proposed, in particular ARS (adaptive rejection sampling) and MARS (adaptive rejection Metropolis sampling).
 %Metropolis Hasting, instead, initializes the chain with a value sampled from a proposal distribution from which we are able to sample from and that attains some nice links with the target distribution. This sample can be accepted or rejected according to a probability that depends on the likelihood of the new candidate point and the previous one. This method presents some scale parameters for which there does not exist a certain rule of decision; moreover, the proposal distribution does not always come from a straightforward reasoning.
 
@@ -34,6 +39,8 @@ The aim of these three methods is to sample from a probability density function 
 The basic idea of slice sampling lies in the fact that if we want to sample $x$ from a distribution $p(x)$ that is proportional to a certain function $f(x)$, it would be sufficient just to sample uniformly from the area below $f(x)$.
 By defining an auxiliary random variable $y$, we exploit Gibbs sampler to sample from the two full conditional distributions. In particular, $y|x$ is distributed as an $Uniform(0,f(x))$ and $x|y$ is distributed as an uniform on the so called slice $S=\lbrace x: y<f(x)\rbrace$. The joint density of $x$ and $y$ is, then $$p(x,y)=\begin{cases}1/Z\quad&\text{ for }0<y<f(x)\\0\quad&\text{ otherwise}\end{cases}$$where $Z=\int f(x)dx$. From this it can easily be seen that $p(x)=\int_0^{f(x)} p(x,y)dy=(1/Z)f(x)$ as desired. 
 %Sampling on the slice can be difficult, and it is sometimes substituted with some update for $x$ which leaves invariant the uniform distribution.
+
+Based on this idea, Murray, Adams and Mackay proposed Elliptical Slice Sampling for multivariate Gaussian priors and indicated the advantage of this new method over MCMC methods in terms of computational complexity and performance of the sampled Markov chains \cite{MAM}. This project aims to implement Elliptical Slice Sampling in R and assess the performance of Elliptical Slice Sampling on Gaussian regression model and Log Gaussian Cox process model.
 
 \section{Elliptical Slice Sampling}
 
@@ -103,51 +110,14 @@ u &\sim\text{Uniform}[0,1]\\
 \end{algorithmic}
 \end{algorithm}
 
+\begin{figure}
+    \centering
+    \includegraphics[width = 10cm,height = 8cm]{essfig.png}
+    \caption{(a)-(d): Implementing the algorithm by inputting $\bf{f}$, which is denoted by black cross, and update to $\bf{f'}$. The red cross represents the auxiliary variable $\bf{\nu}$, green slice represents the likelihood threshold, blue points are the new proposal in each step, and solid lines are the range that $\theta$s are sampled from. (e) is the reverse procedure proposing $\bf{f}$ back from $\bd{f'}$, where $\bf{\nu'}$ is the red cross.}
+\end{figure}
 
-\subsection{Reversibility of Elliptical Slice Sampling}
+An example of updating $\bf{f}$ to $\bf{f'}$ by implementing this algorithm is shown in Figure 1. $\bf{f}$ is the location where $\theta = 0$. The four proposals are $\bf{f_1}, \bf{f_2}, \bf{f_3}$ and $\bf{f_4}$, where $\bf{f_4} = \bf{f'}$. These states correspond to angles $\theta_k$ $k=1,...,4$. The range that $\theta$s are sampled from shrinks during the implementation of the algorithm such that $\bf{f}$ is always included. The update stops when the proposed new state lies on the green slice, i.e. the range of likelihood satisfying step 5 in the algorithm. This process is reversible and original state $\bf{f}$ can be reached, as shown in (e). When we update the state from $\bf{f'}$, $\theta = 0$ at this point. A rotation of $-\theta_4$ will return back to the original state.
 
-The Elliptical Slice Sampling algorithm updates $\bf{f}$ by proposing $\bf{f_1}$,...,$\bf{f_k}$,... based on $\theta_1$,...,$\theta_k$,..., until $\bf{f_K}$ satisfies step 5 in the algorithm. Then $\bf{f_K} = \bf{f'}$. This procedure is reversible. We can verify this by showing
-
-\begin{equation}
-p(\mathbf{f}, y, \pmb{\nu},\lbrace\theta_k\rbrace)=p(\mathbf{f'}, y, \pmb{\nu'},\lbrace\theta_k^{'}\rbrace)
-\end{equation}
-
-This joint distribution is the multiplication of target distribution and proposals of ${\theta_k}$ and $\pmb{\nu}$:
-
-\begin{align}\label{newtarget}
-p(\mathbf{f}, y, \pmb{\nu},\lbrace\theta_k\rbrace)&=p^*(\mathbf{f})p(y|\mathbf{f})p(\pmb{\nu})p(\lbrace\theta_k\rbrace|\mathbf{f},\pmb{\nu},y)\propto\\
-&\propto\mathcal{N}(\mathbf{f};\mathbf{0},\Sigma)L(\mathbf{f})\mathcal{N}(\pmb{\nu};\mathbf{0},\Sigma)\frac{1}{L(\mathbf{f})}p(\lbrace\theta_k\rbrace|\mathbf{f},\pmb{\nu},y)
-\end{align}
-
-Another variable $\pmb{\nu}_k$ is added which is updated in every iteration, such that:
-
-\begin{equation}
-\pmb{\nu}_k = \pmb{\nu} \text{cos}(\theta_k) - \mathbf{f}\text{sin}(\theta_k)\qquad k=1,...,K
-\end{equation}
-
-Then we have:
-
-\begin{equation}\label{gaussians}
-\mathcal{N}(\pmb{\nu}_k;\mathbf{0},\Sigma)\mathcal{N}(\mathbf{f}_k;\mathbf{0},\Sigma)=\mathcal{N}(\pmb{\nu};\mathbf{0},\Sigma)\mathcal{N}(\mathbf{f};\mathbf{0},\Sigma) \qquad\forall{k}
-\end{equation}
-
-This can be easily proved by computing Jacobian matrix, which has determinat equalling 1 in this case.
-
-$\theta = 0$ corresponds to the location of $\bf{f}$. When we reverse the procedure, the location of $\bf{f'}$ corresponds to $\theta' = 0$. So the relative angle of the location of $\bf{f}$ is $-\theta_K$. By generating the same $y$, $\nu$ and angle:
-
-\begin{equation}
-\theta_k' = \theta_k-\theta_K
-\end{equation}
-
-we can return to $\bf{f}$. So the following equation holds:
-
-\begin{equation}\label{angles}
-p(\lbrace\theta_k\rbrace|\mathbf{f},\pmb{\nu},y)=p(\lbrace\theta_k^{'}\rbrace|\mathbf{f'},\pmb{\nu'},y)
-\end{equation}
-
-This will lead to the reversibility of the algorithm by substituting %$\ref{angles}$ 
-and %$\ref{gaussians}$ 
-in %$\ref{newtarget}$.
 
 \section{Experiments}
 In this section, we will validate the elliptical slice sampling algorithm on 2 models: Gaussian regression and Log Gaussian Cox process, and compare this algorithm with the Metropolis-Hastings algorithm adapted by Neal \cite{Neal}.
@@ -159,7 +129,7 @@ Observations $y_n$ are drawn from Normal distribution with mean $f_n$ and varian
 \begin{equation}
 \Sigma_{i,j} = \sigma_{f}^{2}\text{exp}\left(-\frac{1}{2}\sum_{d=1}^{D}(x_{d,i} - x_{d,j})^2/l^2\right)
 \end{equation}
-The ovariance matrix $\Sigma$ is computed by inputing $\mathbf{X}=[\mathbf{x}_1,...,\mathbf{x}_N]^{'}$, which is a $D\times{N}$ matrix where the column vector $\bf{x}_n$, $n = 1,...,N$, are the input $D$-dimensional vectors that will be drawn from a $D$-dimensional unit hypercube for all $n$. 
+The covariance matrix $\Sigma$ is computed by inputing $\mathbf{X}=[\mathbf{x}_1,...,\mathbf{x}_N]^{'}$, which is a $D\times{N}$ matrix where the column vector $\bf{x}_n$, $n = 1,...,N$, are the input $D$-dimensional vectors that will be drawn from a $D$-dimensional unit hypercube for all $n$. 
 Fixing $l$ (called ``lengthscale" parameter), $\sigma_{f}^2$ and $\sigma_{n}^2$, we can generate $f_n$ and therefore simulate observations $y_n$, since $\mathbf{y}|\mathbf{f}\sim\mathcal{N}\left(\mathbf{f},\sigma_n^2\mathbf{I}\right)$and therefore their likelihood function as a function of $\bf{f}$ looks like:
 \begin{equation}
 L_r(\mathbf{f}) = \prod_{n=1}^{N} \mathcal{N}(y_n;f_n,\sigma_n^2)
@@ -185,7 +155,7 @@ L_r(\mathbf{f}) = \prod_{n=1}^{N} \mathcal{N}(y_n;f_n,\sigma_n^2)
 \subsection{Implementation and Results}
 \subsubsection{Gaussian Regression}
 
-Let $l=1$, $\sigma_{f}^2 = 1$, $\sigma_{n}^2 = 0.3^2$. Firstly, we validate the Elliptical Slice Sampling algorithm on Gaussian regression model when $\bf{f}$ is bivariate Normal variable. In this case, let $N = 2$ and $D = 1$ such that $\{\bf{x}_n\}_{n=1}^{2}$ is one dimensional. Since both prior distribution and likelihood function are Gaussian, the posterior distribution of $\bf{f}$ should be Gaussian. We perform Henze-Zirkler's test to assess whether the outputs follow Bivariate Normal distribution. This is based on the measure of distance, which is nonnegative, between the characteristic function of the multivariate normality and the empirical characteristic function. The distribution of the test statistic is approximately log normal. We achieved a p-value much larger than 0.05, which indicates that there is no strong evidence to reject the null hypothesis that the outputs of the algorithm follows multivariate normal distribtuion. We can visualise the distribution of outputs in Figure 1. As a necessary condition for mutivariate normality, each variable should have normal distribution. This can be verified by QQ-plot as shown in Figure 2.
+Let $l=1$, $\sigma_{f}^2 = 1$, $\sigma_{n}^2 = 0.3^2$. Firstly, we validate the Elliptical Slice Sampling algorithm on Gaussian regression model when $\bf{f}$ is bivariate Normal variable. In this case, let $N = 2$ and $D = 1$ such that $\{\bf{x}_n\}_{n=1}^{2}$ is one dimensional. Since both prior distribution and likelihood function are Gaussian, the posterior distribution of $\bf{f}$ should be Gaussian. We perform Henze-Zirkler's test to assess whether the outputs follow Bivariate Normal distribution. This is based on the measure of distance, which is nonnegative, between the characteristic function of the multivariate normality and the empirical characteristic function. The distribution of the test statistic is approximately log normal. We achieved a p-value much larger than 0.05, which indicates that there is no strong evidence to reject the null hypothesis that the outputs of the algorithm follows multivariate normal distribtuion. We can visualise the distribution of outputs in Figure 1. As a necessary condition for mutivariate normality, each variable should have normal distribution. We confirm this condition from QQ-plot. 
 
 %\begin{figure} [h!]
 %\centering
@@ -198,7 +168,7 @@ Let $l=1$, $\sigma_{f}^2 = 1$, $\sigma_{n}^2 = 0.3^2$. Firstly, we validate the 
 %\caption{QQ plot of $f_1$ and $f_2$ from Elliptical Slice Sampling algorithm }
 %\end{figure}
 
-Then we assess the performance of the algorithm on Gaussian regression when $N=200$, i.e. $\bf{f}$ is 200-dimensional. As stated in the model description section, $\bf{f}$ can be generated by inputing $X$ to covariance matrix. So we first simulated datasets $X$. In order to compare the performance of algorithm for different dimensions, i.e. $D$, of feature vectors, 3 synthetic datasets $X_1$,$X_2$,$X_3$ will be simulated with $D = 1,5,10$ respectively. 
+Then we assess the performance of the algorithm on Gaussian regression when $N=200$, i.e. $\bf{f}$ is 200-dimensional. As stated in the model description section, $\bf{f}$ can be generated by inputing $X$ to covariance matrix. So we first simulated datasets $X$. In order to compare the performance of algorithm for different dimensions, i.e. $D$, of feature vectors, 2 synthetic datasets $X_1$,$X_10$ will be simulated with $D = 1,10$ respectively. This will give different distribution of prior distribution of $\bf{f}$. Denote the observations simulated from these two cases as $R1$ and $R10$ respectively.
 %\begin{figure} [h!]
 %\centering
 %\includegraphics[width = 10cm]{figure1.pdf}
@@ -209,18 +179,18 @@ Then we assess the performance of the algorithm on Gaussian regression when $N=2
 %\includegraphics[width = 10cm]{tracef_1.pdf}
 %\caption{Trace plot of the first dimension dimension of output $f$ of 100000 iterations}
 %\end{figure}
-The traces of log-likelihoods and the first dimension of outputs for $D=1$ are shown in Figure 3 and 4 respectively, which reveal frequent jumps in both chains. The effective sample size for it is 3177.
+%The traces of log-likelihoods and the first dimension of outputs for $D=1$ are shown in Figure 3 and 4 respectively, which reveal frequent jumps in both chains. The effective sample size for it is 3177.
 
 \subsubsection{Log Gaussian Cox process}
 
-Data of mining disasters are provided by Jarrett et al. \cite{Jarrett}. There were 191 events happening during 40550 days which were partitioned into 811 bins each of which contains 50 days. Given the date of every event, the number of event happened in each bin can be computed, i.e. $y_n$. Let $l=13516$, $\sigma_f^2 = 1$, $N = 811$, $D=1$ and $m=log(191/811)$. The trace of the first dimension of the output is shown below.
+Data of mining disasters are provided by Jarrett et al. \cite{Jarrett}. There were 191 events happening during 40550 days which were partitioned into 811 bins each of which contains 50 days according to Murray, Adams and MacKay $\cite{MAM}$. This means $f$ is 811 dimensional, we notice that both Elliptical Slice Samping and metropolis hastins method take a long time. This makes it harder to validate algorithms on this model. Hence, we partition the period into 102 intervals, such that each interval includes 400 days (except the last one, which is consist of 150 days). Given the date of every event, the number of event happened in each bin can be computed, i.e. $y_n$. Let $l=13516$, $\sigma_f^2 = 1$, $N = 102$, $D=1$ and $m=log(191/102)$. We observe frequent jumps in trace plot and the autocorrelation function goes to 0 within ?? lag(??).
 %\begin{figure}[h!]
 %\centering
 %\includegraphics[width = 10cm]{figureminedata.pdf}
 %\caption{Trace plot of the first dimension dimension of output $f$ of 20000 iterations}
 %\end{figure}
 
-\subsection{Comparison}
+\subsubsection{Comparison}
 For Gaussian regression model, we will compare the performance of Elliptical Slice Sampling algorithm with the theorethical Bayesian model, the Metropolis-Hasting algorithm introduced by Neal \cite{Neal} and an adapted Metropolis-Hastings algorithm proposed by Roberts et al. in \cite{Roberts}. 
 
 In order to plot and compare the densities, we restricted the full $4$-models comparison on the $2$-dimensional case. Hence, $N=1$, $D=2$ and, as suggested in \cite{MAM}, we put $\sigma_n=0.3$, $\sigma_f=1$ and $l=1$.
@@ -232,18 +202,51 @@ The full Bayesian model will look like this:
 \end{align*}
 where $\Sigma$, as proposed before, is such that $\Sigma_{i,j}=\text{exp}\left(-\frac{1}{2}\sum_{d=1}^{2}(x_{d,i} - x_{d,j})^2\right)\,i,j=1,2$ and $\Sigma^{'}=\begin{bmatrix}0.09 & 0 \\ 0 & 0.09\end{bmatrix}$.
 We tested the normality of these samples with the `mvnorm.skew.test` from the `ICS` pckage and the null hypothesis was not rejected.
+
+For Neal's Metropolis Hastings algorithm, we discover that the performance of the MCMC chain is sensitive to the value of step-size $\epsilon$ because the mixture and convergence of the chain depend on $\epsilon$. We take $\epsilon = 0.2$ after trails of different values. 
+
+With the same target distribution, adaptive Metropolis-Hastings use proposals for $n^{th}$ iteration as follows:\\
+\begin{equation}
+    q_n(\bf{f},\bf{f'}) = 
+    \begin{cases}
+     N(\bf{f},(0.1^2)I_d/d) & n\leq 2d \\
+        (1-\beta)N(\bf{f},(2.38^2)\Sigma_n/d) + \beta N(\bf{f},(0.1^2)I_d/d) & n > 2d \\
+    \end{cases}
+\end{equation}
+
+where $\Sigma_n$ is the empirical estimate of the covariance of the target distribution based on the run so far and $\beta$ is a small positive constant \cite{Gareth}.
+
+Compared to other algorithms, Adaptive Metropolis Hastings algorithm takes longer time to reach a stationary variance and good mixture. To avoid complexity of estimating $\Sigma_n$, in this example, we simply take the covariance of the posterior distribution, which is known. In this case, it is not nessary to take the weighted sum as proposal according to previous research \cite{Gareth}. Then the proposal turns out to be $N(\bf{f},(2.38^2)\left(\Sigma^{-1}+\Sigma^{'-1}\right)^{-1}\right/d)$.
+
 In the figure \ref{comparison} we can compare the contour plots of the four samples coming from the theoretical model, the ESS algorithm, the Neal MH and the Adaptive MH. The number of samples for each model was $100000$. It is evident that the stationary distributions of the three algorithms are the correct one.
 \begin{figure}[h]\label{comparison}
 \centering
 \includegraphics[height=13cm,width = 15cm]{ComparisonGauss.pdf}
 \caption{Comparison of contour plots for Gaussian regression}
 \end{figure}
-We need to mention the fact that the we tried different step-size parameters for Neal's algorithm to obtain a Gaussian sample.
+%We need to mention the fact that the we tried different step-size parameters for Neal's algorithm to obtain a Gaussian sample. (mentioned)
 
+Then we compare Elliptical Slice Sampling with Neal's MH in terms of effective sample size and CPU time. We run $10^6$ iterations and remove the first $10^5$ burn-in. We encountered problems when implementing Adaptive MH with proposal as shown in Equation (6), which is resulted from the empirical estimation of the covariance matrix. In addition, the update of state is infrequent. In the first 400 iterations, $\bf{f}$ still stay in the same state. Therefore, we only compare Elliptical Slice sampling with Neal's MH. The results are shown in Table 1, which show that Elliptical slice sampling is more efficient compared to Neal's MH because the former one has more effective samples in all 3 examples. The effective samples occupy approximately 47\% for Elliptical slice sampling method while consists of only 21\% of total samples for Neal's MH. The effective sample size is much smaller for data where $\bf{f}$ is 200 dimensional where input vector is 10 dimensional. On the other hand, the elliptical slice sampling takes longer time. But the effective samples per unit time for Elliptical Slice Sampling is larger in general. For example, for $R1$, the effective samples per unit time is 2.1 for Elliptical Slice Sampling, which is approximately twice as large as Neal's MH.
 
-We tested log Gaussian Cox process model.The effective sample size, likelihood and CPU time for running 100000 iterations after 10000 burn in will be evaluated. We will perform 100 runs to discover the mean and standard deviation of the evaluations. 
+\begin{table}[!htbp]
+\centering
+\caption{Compare Elliptical Slice Sampling with Neal's Metropolis Hastings on data $R1$, $R10$ and $Mining$ in terms of effective sample size and CPU time.}
+\begin{tabular}{*7c}
+\toprule
+ {} &  \multicolumn{2}{c}{R1} & \multicolumn{2}{c}{R10} & \multicolumn{2}{c}{Mining}\\
+\midrule
+{}   & ESS   & NMH    & ESS   & NMH  & ESS   & NMH\\
+effective samples   &  33316.79 & 13330.98   & 2139.793  & 1159.535 & 429181.7 & 186571\\
+CPU time   &  15898.001 & 9472.684   & 16374.79  & 10497.30 & 3448.755 & 3271.421\\
 
+\bottomrule
 
+\end{tabular}
+\end{table}
+
+\section{Discussion and Conclusion}
+
+Neal's MH requires extra time to tune step-size. Combined the results discovered in Section 3, Elliptical Slice Sampling outperforms Neal's MH in terms of time complexity, efficiency and mixture of Markov chains (??).
 \begin{thebibliography}{12}
 
 
@@ -277,6 +280,8 @@ Gaussian Process Priors},
 	Roberts, G. O., Rosenthal, J. S. (2009)
 	\emph{Examples of Adaptive MCMC},
 	Journal of Computational and Graphical Statistics.
+	
+\bibitem{Gareth} Gareth O. Roberts & Jeffrey S. Rosenthal (2009) \emph{Examples of Adaptive MCMC}, Journal of COmputational and Graphical Statistics, 18:2, 349-367, DOI:10.1198/icgs.2009.06134.
 
 \end{thebibliography}
 
