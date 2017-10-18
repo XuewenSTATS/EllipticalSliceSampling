@@ -9,7 +9,7 @@
 #' @param sigma covariance matrix of f
 #' @param llk log likelihood function
 #' @param n number of iterations
-#' @return an n x N matrix where N is the dimension of f
+#' @return This function returns an n x N matrix where N is the dimension of f.
 #' @export f
 
 ess = function(f,sigma,llk,n){
@@ -50,7 +50,7 @@ ess = function(f,sigma,llk,n){
 #' @param l lengthscale parameter
 #' @param x feature dataset
 #' @param N size of data x
-#' @return covariance matrix of f
+#' @return This function returns the covariance matrix of f.
 #' @export mat
 ## Covariance matrix for f
 ## sig_var is the unit signal variance, default = 1
@@ -120,7 +120,7 @@ NMH = function(f,sigma,llk,n,stepsize){
 #' @param llk log likelihood function
 #' @param n number of iterations
 #' @param cov_post this is the theoretical covariance matrix of the posterior
-#' @return an n x N matrix where N is the dimension of f
+#' @return This function returns an n x N matrix where N is the dimension of f
 #' @export f
 
 AdaptMH = function(f,sigma,llk,n,N,cov_post){

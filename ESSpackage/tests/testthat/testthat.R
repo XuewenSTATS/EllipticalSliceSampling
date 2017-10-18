@@ -63,7 +63,8 @@ test_that("ESSpackage",{
     geom_density2d(aes(x = X1, y = X2, colour="blue"), data = df_1) +
     geom_density2d(aes(x = X1, y = X2, col="red"), data = df_2) +
     geom_density2d(aes(x = X1, y = X2, col="yellow"), data = df_3) +
-    scale_colour_manual(values=c("green", "blue", "red", "yellow"),labels = c("Theoretical", "ESS", "NealMH", "AdaptiveMH"), name="Sampling methods")
+    scale_colour_manual(values=c("green", "blue", "red", "yellow"),labels = c("Theoretical", "ESS", "NealMH", "AdaptiveMH"), name="Sampling methods")+theme(axis.text = element_text(size=15)) +
+    theme(legend.text=element_text(size=12))
   print(p + ggtitle("Comparison of contour plots"))
 
 })

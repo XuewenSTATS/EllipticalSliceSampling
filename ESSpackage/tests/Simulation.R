@@ -141,7 +141,11 @@ stopCluster(cl)
 effectiveSize(r10llk[-(1:100000)])
 effectiveSize(r10llk1[-(1:100000)])
 
-## log Gaussian cox process
+
+#############################################
+######### log Gaussian cox process ##########
+#############################################
+
 mining = read.table("mining.dat")
 ## parameters:
 bin_width = 50
