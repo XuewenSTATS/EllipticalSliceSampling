@@ -80,7 +80,7 @@ cov_mat = function(sig_var ,l,x,N){
 #' @param llk log likelihood function
 #' @param n number of iterations
 #' @param stepsize this is the fixed number considered in proposal
-#' @return an n x N matrix where N is the dimension of f
+#' @return This function returns a list which contains an n x N matrix where N is the dimension of f and the corresponding log likelihood.
 #' @export f
 
 NMH = function(f,sigma,llk,n,stepsize){
@@ -109,9 +109,10 @@ NMH = function(f,sigma,llk,n,stepsize){
 #' Adaptive Metropolis Hastings
 #'
 #' This is a function named 'AdaptMH'
-#' which implement the Metropolis Hastings algorithm proposed by Gareth and Jeffrey (2012).
+#' which implement the Metropolis Hastings algorithm proposed by Gareth and Jeffrey (2012). However, instead of
+#' using proposals involving empirical estimate of covariance matrix, we input the known covariance of posterior distribution.
 #'
-#' load package "mvtnorm" before using this function
+#' We need to load package "mvtnorm" before using this function
 #'
 #' @param f initial state
 #' @param sigma covariance matrix of f
@@ -138,4 +139,81 @@ AdaptMH = function(f,sigma,llk,n,N,cov_post){
     print(j)
   }
   return(fs = fs)
+}
+
+
+#' Adaptive Metropolis Hastings using proposals involving empirical estimate of covariance
+#'
+#' This is a function named 'AdaptMH_full'
+#' which implement the Metropolis Hastings algorithm proposed by Gareth and Jeffrey (2012).
+#'
+#' We need to load package "mvtnorm" before using this function
+#'
+#' @param f initial state
+#' @param sigma covariance matrix of f
+#' @param N dimension of f
+#' @param llk log likelihood function
+#' @param n number of iterations
+#' @param N dimension of f
+#' @param beta fixed constant used in proposal, the default value is 0.05
+#' @return This function returns a list which contains an n x N matrix where N is the dimension of f and the corresponding log likelihood.
+#' @export f
+
+AdaptMH_full = function(f,sigma,llk,n,N,beta=0.05){
+
+  fs = matrix(0,n,length(f))
+  fs[1,] = f
+
+  loglik = numeric(n)
+  loglik[1] = llk(f)
+  if((n-1) <= 2 * N){
+    for(j in 1:(n-1)){
+      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      mhr = log(dmvnorm(x = f1,mean = rep(0,N),sigma) * dmvnorm(x = f,mean = rep(0,N),sigma)) + llk(f1) - llk(f)
+      if(log(runif(1)) < mhr){
+        loglik[j+1] = llk(f1)
+        fs[j+1,] = f1
+      }
+      else{
+        loglik[j+1] = loglik[j]
+        fs[j+1,] = f
+      }
+      f = fs[j+1,]
+      print(j)
+    }
+  }
+  else{
+    for(j in 1:(2*N)){
+      f1 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      mhr = log(dmvnorm(x = f1,mean = rep(0,N),sigma) * dmvnorm(x = f,mean = rep(0,N),sigma)) + llk(f1) - llk(f)
+      if(log(runif(1)) < mhr){
+        loglik[j+1] = llk(f1)
+        fs[j+1,] = f1
+      }
+      else{
+        loglik[j+1] = loglik[j]
+        fs[j+1,] = f
+      }
+      f = fs[j+1,]
+      print(j)
+    }
+    for(j in (2*N+1):(n-1)){
+
+      v1 = mvrnorm(n = 1, mu = f, (2.38^2) * cor(fs[1:j-1,]) / N)
+      v2 = mvrnorm(n = 1, mu = f, (0.1^2) * diag(N) / N)
+      f1 = (1-beta) * v1 + beta * v2
+      mhr = log(dmvnorm(x = f1,mean = rep(0,N),sigma) * dmvnorm(x = f,mean = rep(0,N),sigma)) + llk(f1) - llk(f)
+      if(log(runif(1)) < mhr){
+        loglik[j+1] = llk(f1)
+        fs[j+1,] = f1
+      }
+      else{
+        loglik[j+1] = loglik[j]
+        fs[j+1,] = f
+      }
+      f = fs[j+1,]
+      print(j)
+    }
+  }
+  return(list(fs = fs, loglik = loglik))
 }
