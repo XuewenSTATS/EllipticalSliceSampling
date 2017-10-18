@@ -4,12 +4,13 @@ library(MVN)
 library(MASS)
 library(mvtnorm)
 library(ICS)
+library(ggplot2)
 
 ####################################################################
 ############# COMPARISON FOR 2-DIM GAUSSIAN REGRESSION #############
 ####################################################################
 
-test_check("ESSpackage",{
+test_that("ESSpackage",{
 
   ## log likelihood function
   gr = function(yn,std){
@@ -34,23 +35,11 @@ test_check("ESSpackage",{
 
   # 4 models: Theoretical, ESS, NealMH, adaptiveMH
   fpost_toy <- mvrnorm(100000, mu_post, sd_post)
-  r_toy_new = ess(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=100000)
-  neal_toy <- NMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),100000,0.2)
-  AdaptMH_toy <- AdaptMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=500000,beta=0.05,N=2,cov_post=sd_post)
+  r_toy_new = ess(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=1000)
+  neal_toy <- NMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),1000,0.2)
+  AdaptMH_toy <- AdaptMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=5000,N=2,cov_post=sd_post)
 
-  # Testing Normality (Mardia test)
 
-  mvnorm.skew.test(neal_toy$fs)
-  mvnorm.kur.test(neal_toy$fs)
-
-  mvnorm.skew.test(fpost_toy)
-  mvnorm.kur.test(fpost_toy)
-
-  mvnorm.skew.test(r_toy_new)
-  mvnorm.kur.test(r_toy_new)
-
-  mvnorm.skew.test(AdaptMH_toy)
-  mvnorm.kur.test(AdaptMH_toy)
 
   # Contour Plot of the 3 models
   df <- data.frame(fpost_toy)
@@ -58,10 +47,11 @@ test_check("ESSpackage",{
   df_2 <- data.frame(neal_toy$fs)
   df_3 <- data.frame(AdaptMH_toy)
   library(ggplot2)
-  ggplot() + geom_density2d(aes(x = X1, y = X2, colour="green"), data = df) +
+  p <- ggplot() + geom_density2d(aes(x = X1, y = X2, colour="green"), data = df) +
     geom_density2d(aes(x = X1, y = X2, colour="blue"), data = df_1) +
     geom_density2d(aes(x = X1, y = X2, col="red"), data = df_2) +
     geom_density2d(aes(x = X1, y = X2, col="yellow"), data = df_3) +
     scale_colour_manual(values=c("green", "blue", "red", "yellow"),labels = c("Theoretical", "ESS", "NealMH", "AdaptiveMH"), name="Sampling methods")
   print(p + ggtitle("Comparison of contour plots"))
+
 })
