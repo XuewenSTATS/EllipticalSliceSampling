@@ -35,10 +35,22 @@ test_that("ESSpackage",{
 
   # 4 models: Theoretical, ESS, NealMH, adaptiveMH
   fpost_toy <- mvrnorm(100000, mu_post, sd_post)
-  r_toy_new = ess(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=1000)
-  neal_toy <- NMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),1000,0.2)
-  AdaptMH_toy <- AdaptMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=5000,N=2,cov_post=sd_post)
+  r_toy_new = ess(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=100000)
+  neal_toy <- NMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),100000,0.2)
+  AdaptMH_toy <- AdaptMH(f=f_toy_new,sigma=sigma_toy,llk=gr(yn = observation_toy_new,std = std_gr),n=500000,N=2,cov_post=sd_post)
 
+  # Testing Normality
+  # mvnorm.skew.test(neal_toy$fs)
+  # mvnorm.kur.test(neal_toy$fs)
+
+  # mvnorm.skew.test(fpost_toy)
+  # mvnorm.kur.test(fpost_toy)
+
+  # mvnorm.skew.test(r_toy_new)
+  # mvnorm.skew.test(r_toy_new)
+
+  # mvnorm.skew.test(AdaptMH_toy)
+  # mvnorm.skew.test(AdaptMH_toy)
 
 
   # Contour Plot of the 3 models
